@@ -3,6 +3,13 @@ const Category = require('../models/Category');
 const { parseTransactionText } = require('../utils/parseTransactionText');
 const { checkBudgetThresholds } = require('./budgetController');
 
+// Kategoriya tanlanmasa ishlatiladigan standart kategoriya — turi bo'yicha ("Boshqa" xarajat
+// uchun, "Boshqa daromad" kirim uchun, chunki bitta kategoriya ikkala turga tegishli bo'la olmaydi).
+async function getDefaultCategory(type) {
+  const name = type === 'income' ? 'Boshqa daromad' : 'Boshqa';
+  return Category.findOne({ name, isDefault: true });
+}
+
 async function list(req, res) {
   try {
     const { type, limit } = req.query;
@@ -27,23 +34,29 @@ async function create(req, res) {
     if (!amount || amount <= 0) {
       return res.status(400).json({ message: 'amount musbat son bo\'lishi kerak' });
     }
-    if (!categoryId) return res.status(400).json({ message: 'categoryId majburiy' });
 
-    const category = await Category.findById(categoryId);
-    if (!category) return res.status(400).json({ message: 'Kategoriya topilmadi' });
+    // Kategoriya ixtiyoriy — tanlanmasa turi bo'yicha standart ("Boshqa"/"Boshqa daromad") ishlatiladi.
+    let category;
+    if (categoryId) {
+      category = await Category.findById(categoryId);
+      if (!category) return res.status(400).json({ message: 'Kategoriya topilmadi' });
+    } else {
+      category = await getDefaultCategory(type);
+      if (!category) return res.status(500).json({ message: 'Standart kategoriya topilmadi' });
+    }
 
     const transaction = await Transaction.create({
       user: req.userId,
       type,
       amount,
-      category: categoryId,
+      category: category._id,
       note: note || '',
       date: date ? new Date(date) : new Date(),
       source: source || 'web',
     });
 
     if (type === 'expense') {
-      await checkBudgetThresholds(req.userId, categoryId, transaction.date);
+      await checkBudgetThresholds(req.userId, category._id, transaction.date);
     }
 
     const populated = await transaction.populate('category');
@@ -71,9 +84,15 @@ async function update(req, res) {
       transaction.amount = amount;
     }
     if (categoryId !== undefined) {
-      const category = await Category.findById(categoryId);
-      if (!category) return res.status(400).json({ message: 'Kategoriya topilmadi' });
-      transaction.category = categoryId;
+      if (categoryId) {
+        const category = await Category.findById(categoryId);
+        if (!category) return res.status(400).json({ message: 'Kategoriya topilmadi' });
+        transaction.category = categoryId;
+      } else {
+        const defaultCategory = await getDefaultCategory(transaction.type);
+        if (!defaultCategory) return res.status(500).json({ message: 'Standart kategoriya topilmadi' });
+        transaction.category = defaultCategory._id;
+      }
     }
     if (note !== undefined) transaction.note = note;
     if (date !== undefined) transaction.date = new Date(date);
@@ -120,7 +139,7 @@ async function voiceParse(req, res) {
       category = await Category.findOne({ name: parsed.categoryName, isDefault: true });
     }
     if (!category) {
-      category = await Category.findOne({ name: 'Boshqa', isDefault: true });
+      category = await getDefaultCategory(finalType);
     }
 
     const transaction = await Transaction.create({

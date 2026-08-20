@@ -87,6 +87,7 @@ export function AddTransactionDialog({
   const [deleteOpen, setDeleteOpen] = useState(false);
   const [deleting, setDeleting] = useState(false);
   const autoStartedRef = useRef(false); // shu "ochiq" sessiyada avtomatik boshlanganmi
+  const categoryTouchedRef = useRef(false); // foydalanuvchi kategoriyani o'zi tanladimi
 
   // Dialog har ochilganda (yoki tahrirlanayotgan tranzaksiya almashganda) formani qayta to'ldiradi —
   // React docs'ning "prop o'zgarganda state'ni reset qilish" uchun Effect ishlatish tasdiqlangan
@@ -108,6 +109,7 @@ export function AddTransactionDialog({
     setQuickText("");
     setSpeechSupported(!!getSpeechRecognition());
     autoStartedRef.current = false;
+    categoryTouchedRef.current = false;
     api
       .get<Category[]>("/categories")
       .then((cats) => setCategories(cats))
@@ -116,6 +118,18 @@ export function AddTransactionDialog({
   /* eslint-enable react-hooks/set-state-in-effect */
 
   const filteredCategories = categories.filter((c) => c.type === type);
+
+  // Kategoriya tanlanmagan bo'lsa (yangi tranzaksiya, foydalanuvchi hali o'zi tanlamagan),
+  // turi bo'yicha standart ("Boshqa"/"Boshqa daromad") avtomatik ko'rsatiladi — foydalanuvchi
+  // kategoriyani umuman qo'ymasa ham backend aynan shu bilan saqlaydi.
+  /* eslint-disable react-hooks/set-state-in-effect */
+  useEffect(() => {
+    if (!open || isEditing || categoryTouchedRef.current || categories.length === 0) return;
+    const defaultName = type === "income" ? "Boshqa daromad" : "Boshqa";
+    const def = categories.find((c) => c.name === defaultName && c.isDefault);
+    if (def) setCategoryId(def._id);
+  }, [open, isEditing, type, categories]);
+  /* eslint-enable react-hooks/set-state-in-effect */
 
   async function runParse(text: string) {
     if (!text.trim()) return;
@@ -129,7 +143,10 @@ export function AddTransactionDialog({
       }>("/transactions/parse", { text });
       if (result.amount) setAmount(String(result.amount));
       setType(result.type);
-      if (result.categoryId) setCategoryId(result.categoryId);
+      if (result.categoryId) {
+        setCategoryId(result.categoryId);
+        categoryTouchedRef.current = true;
+      }
       setNote(text);
       if (!result.confident) {
         toast.info(t("tx.notConfident"));
@@ -175,10 +192,8 @@ export function AddTransactionDialog({
       toast.error(t("tx.enterValidAmount"));
       return;
     }
-    if (!categoryId) {
-      toast.error(t("tx.selectCategory"));
-      return;
-    }
+    // Kategoriya ixtiyoriy — tanlanmasa backend turi bo'yicha standart ("Boshqa"/"Boshqa daromad")
+    // kategoriyani o'zi qo'yadi.
     setSubmitting(true);
     try {
       if (isEditing && editTransaction) {
@@ -276,7 +291,15 @@ export function AddTransactionDialog({
 
           <div className="grid gap-2">
             <Label>{t("tx.category")}</Label>
-            <Select value={categoryId} onValueChange={(v) => v && setCategoryId(v)}>
+            <Select
+              value={categoryId}
+              onValueChange={(v) => {
+                if (v) {
+                  categoryTouchedRef.current = true;
+                  setCategoryId(v);
+                }
+              }}
+            >
               <SelectTrigger>
                 <SelectValue placeholder={t("common.select")}>
                   {(v: string) => {

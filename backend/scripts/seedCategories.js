@@ -12,6 +12,7 @@ const DEFAULT_CATEGORIES = [
   { name: "Ta'lim", emoji: '📚', type: 'expense' },
   { name: 'Boshqa', emoji: '📦', type: 'expense' },
   { name: 'Maosh', emoji: '💵', type: 'income' },
+  { name: 'Boshqa daromad', emoji: '📦', type: 'income' },
 ];
 
 async function seedCategories() {

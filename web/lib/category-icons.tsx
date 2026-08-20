@@ -25,6 +25,7 @@ const CATEGORY_ICON_MAP: Record<string, IconType> = {
   Kiyim: FaTshirt,
   "Ta'lim": FaGraduationCap,
   Boshqa: FaBoxOpen,
+  "Boshqa daromad": FaBoxOpen,
   Maosh: FaMoneyBillWave,
 };
 
