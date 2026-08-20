@@ -206,7 +206,7 @@ export function AddTransactionDialog({ open, onOpenChange, defaultType, onSucces
 
           <div className="grid gap-2">
             <Label>Kategoriya</Label>
-            <Select value={categoryId} onValueChange={setCategoryId}>
+            <Select value={categoryId} onValueChange={(v) => v && setCategoryId(v)}>
               <SelectTrigger>
                 <SelectValue placeholder="Tanlang">
                   {(v: string) => {

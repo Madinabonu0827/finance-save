@@ -51,6 +51,19 @@ async function link(req, res) {
   }
 }
 
+// Web'dan chaqiriladi (JWT) — joriy user Telegramga ulanganmi, Sozlamalar sahifasida ko'rsatish uchun.
+async function status(req, res) {
+  try {
+    const connection = await TelegramConnection.findOne({ user: req.userId });
+    res.json({
+      linked: !!connection?.linked,
+      telegramUsername: connection?.linked ? connection.telegramUsername : null,
+    });
+  } catch (err) {
+    res.status(500).json({ message: 'Server xatosi', error: err.message });
+  }
+}
+
 async function getConnectionOr404(chatId, res) {
   const connection = await TelegramConnection.findOne({ chatId: String(chatId), linked: true });
   if (!connection) {
@@ -107,4 +120,4 @@ async function savings(req, res) {
   }
 }
 
-module.exports = { generateLinkCode, link, me, summary, budget, savings };
+module.exports = { generateLinkCode, link, me, summary, budget, savings, status };
