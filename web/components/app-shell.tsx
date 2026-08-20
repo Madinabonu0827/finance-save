@@ -7,6 +7,7 @@ import {
   PieChart,
   Wallet,
   PiggyBank,
+  HandCoins,
   Sparkles,
   Settings,
   LogOut,
@@ -27,6 +28,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
     { href: "/statistics", label: t("nav.statistics"), icon: PieChart },
     { href: "/budget", label: t("nav.budget"), icon: Wallet },
     { href: "/savings", label: t("nav.savings"), icon: PiggyBank },
+    { href: "/debts", label: t("nav.debts"), icon: HandCoins },
     { href: "/ai", label: t("nav.ai"), icon: Sparkles },
     { href: "/settings", label: t("nav.settings"), icon: Settings },
   ];
@@ -87,8 +89,8 @@ export function AppShell({ children }: { children: React.ReactNode }) {
 
         <main className="flex-1 pb-20 md:pb-0 overflow-x-hidden">{children}</main>
 
-        {/* Mobile bottom nav — icon-only, 6 items eng tor ekranda ham sig'ishi uchun */}
-        <nav className="md:hidden fixed bottom-0 left-0 right-0 z-10 grid grid-cols-6 border-t bg-card">
+        {/* Mobile bottom nav — icon-only, 7 items eng tor ekranda ham sig'ishi uchun */}
+        <nav className="md:hidden fixed bottom-0 left-0 right-0 z-10 grid grid-cols-7 border-t bg-card">
           {NAV_ITEMS.map((item) => {
             const active = pathname === item.href;
             return (

@@ -2,8 +2,11 @@
 // AI Maslahatchi foydalanuvchining REAL ma'lumotlari (tranzaksiya/byudjet/jamg'arma) ustida
 // qoida-asosli tahlil dvigateli sifatida ishlaydi. Fake/hardcoded raqam ishlatilmaydi — CLAUDE.md §6 talabiga mos.
 
+// "qarz" bu yerda YO'Q — endi ilovada haqiqiy Qarz moduli bor, shuning uchun "qarzlarim qanday"
+// kabi savollar DEBT_TRIGGERS orqali real ma'lumot bilan javoblanadi. Faqat bank/tashqi
+// kredit-tashkilotga oid so'zlar xavfli-savol sifatida qoladi.
 const RISKY_KEYWORDS = [
-  'kredit', 'qarz', 'nasiya', 'investitsiya', 'aksiya', 'birja', 'kripto', 'bitcoin',
+  'kredit', 'nasiya', 'investitsiya', 'aksiya', 'birja', 'kripto', 'bitcoin',
   'soliq', 'foiz stavka', 'ipoteka', 'lizing',
 ];
 
@@ -13,6 +16,7 @@ const SAVING_TRIGGERS = ['tejash', 'tejam', 'save', 'maslahat', 'jamg\'armani os
 const BUDGET_TRIGGERS = ['byudjet', 'limit', 'chegara'];
 const SAVINGS_GOAL_TRIGGERS = ['jamg', "jam'g", 'maqsad'];
 const BALANCE_TRIGGERS = ['balans', 'qancha pul', 'necha pul', 'pulim qancha', 'hisobim'];
+const DEBT_TRIGGERS = ['qarz', "qarzdorlik"];
 
 const DISCLAIMER =
   "Men moliyaviy maslahatchi o'rnini bosa olmayman. Muhim qarorlar uchun mutaxassisga murojaat qiling.";
@@ -62,6 +66,19 @@ function buildAdvice(message, stats) {
     if (overLimit.length) msg += `\n⚠️ ${overLimit.map((b) => b.category).join(', ')} limitdan oshib ketgan!`;
     else if (near.length) msg += `\n⚠️ ${near.map((b) => b.category).join(', ')} limitga yaqinlashmoqda.`;
     else msg += '\n✅ Barcha kategoriyalar limit doirasida.';
+    return msg;
+  }
+
+  if (hasAny(DEBT_TRIGGERS)) {
+    const { iOwe, owedToMe, items } = stats.debts || { iOwe: 0, owedToMe: 0, items: [] };
+    if (!items.length) {
+      return "Hozircha qarz yozuvi yo'q. Qarz bo'limidan kimdan qarz olganingizni yoki kimga bergan ekaningizni qo'shishingiz mumkin.";
+    }
+    let msg = `💳 Qarz holati:\n• Sizning qarzingiz: ${iOwe.toLocaleString('uz-UZ')} so'm\n• Sizga qaytarilishi kerak: ${owedToMe.toLocaleString('uz-UZ')} so'm\n`;
+    const overdue = items.filter((d) => d.dueDate && new Date(d.dueDate) < new Date());
+    if (overdue.length) {
+      msg += `\n⚠️ Muddati o'tgan: ${overdue.map((d) => `${d.personName} (${d.amount.toLocaleString('uz-UZ')} so'm)`).join(', ')}`;
+    }
     return msg;
   }
 

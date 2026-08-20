@@ -121,4 +121,19 @@ async function savings(req, res) {
   }
 }
 
-module.exports = { generateLinkCode, link, me, summary, budget, savings, status };
+async function debts(req, res) {
+  try {
+    const connection = await getConnectionOr404(req.params.chatId, res);
+    if (!connection) return;
+    const stats = await getUserStats(connection.user);
+    res.json({
+      iOwe: stats.debts.iOwe,
+      owedToMe: stats.debts.owedToMe,
+      items: stats.debts.items,
+    });
+  } catch (err) {
+    res.status(500).json({ message: 'Server xatosi', error: err.message });
+  }
+}
+
+module.exports = { generateLinkCode, link, me, summary, budget, savings, debts, status };

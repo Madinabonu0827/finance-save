@@ -36,12 +36,14 @@ const BTN_ADD_EXPENSE = "➕ Xarajat qo'shish";
 const BTN_ADD_INCOME = "➕ Daromad qo'shish";
 const BTN_BUDGET = "📊 Byudjet";
 const BTN_SAVINGS = "🎯 Jamg'armalar";
+const BTN_DEBTS = "💳 Qarzlar";
 const BTN_AI = "🤖 AI Maslahatchi";
 
 const mainMenu = Markup.keyboard([
   [BTN_BALANCE, BTN_BUDGET],
+  [BTN_SAVINGS, BTN_DEBTS],
   [BTN_ADD_EXPENSE, BTN_ADD_INCOME],
-  [BTN_SAVINGS, BTN_AI],
+  [BTN_AI],
 ]).resize();
 
 // --- Yordamchi funksiyalar ---
@@ -170,6 +172,31 @@ bot.hears(BTN_SAVINGS, async (ctx) => {
       return `🎯 ${g.name}\n${progressBar(percent)}\n${formatSum(g.current)} / ${formatSum(g.target)}`;
     });
     await ctx.reply(lines.join("\n\n"));
+  } catch (err) {
+    await handleApiError(ctx, err);
+  }
+});
+
+// --- 💳 Qarzlar ---
+
+bot.hears(BTN_DEBTS, async (ctx) => {
+  const chatId = String(ctx.chat.id);
+  try {
+    const res = await api.getDebts(chatId);
+    const { iOwe, owedToMe, items } = res.data || {};
+    if (!items || items.length === 0) {
+      await ctx.reply("💳 Hozircha qarz yozuvi yo'q.");
+      return;
+    }
+    let text = `💳 Sizning qarzingiz: ${formatSum(iOwe)}\n💳 Sizga qaytarilishi kerak: ${formatSum(owedToMe)}\n\n`;
+    text += items
+      .map((d) => {
+        const arrow = d.type === "borrowed" ? "➖" : "➕";
+        const due = d.dueDate ? ` (muddat: ${new Date(d.dueDate).toLocaleDateString("uz-UZ")})` : "";
+        return `${arrow} ${d.personName} — ${formatSum(d.amount)}${due}`;
+      })
+      .join("\n");
+    await ctx.reply(text);
   } catch (err) {
     await handleApiError(ctx, err);
   }

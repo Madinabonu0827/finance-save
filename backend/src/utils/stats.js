@@ -1,6 +1,7 @@
 const Transaction = require('../models/Transaction');
 const Budget = require('../models/Budget');
 const SavingsGoal = require('../models/SavingsGoal');
+const Debt = require('../models/Debt');
 const { currentMonthKey } = require('./format');
 
 function monthRange(monthKey) {
@@ -40,6 +41,18 @@ async function getUserStats(userId, monthKey = currentMonthKey()) {
 
   const savingsGoals = await SavingsGoal.find({ user: userId });
 
+  const pendingDebts = await Debt.find({ user: userId, status: 'pending' });
+  const debts = {
+    iOwe: pendingDebts.filter((d) => d.type === 'borrowed').reduce((s, d) => s + d.amount, 0),
+    owedToMe: pendingDebts.filter((d) => d.type === 'lent').reduce((s, d) => s + d.amount, 0),
+    items: pendingDebts.map((d) => ({
+      type: d.type,
+      personName: d.personName,
+      amount: d.amount,
+      dueDate: d.dueDate,
+    })),
+  };
+
   return {
     balance,
     totalIncome,
@@ -51,6 +64,7 @@ async function getUserStats(userId, monthKey = currentMonthKey()) {
       targetAmount: g.targetAmount,
       currentAmount: g.currentAmount,
     })),
+    debts,
   };
 }
 

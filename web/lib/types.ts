@@ -54,10 +54,22 @@ export interface RecurringPayment {
 
 export interface Notification {
   _id: string;
-  type: "budget_80" | "budget_100" | "savings_goal_reached" | "recurring_payment";
+  type: "budget_80" | "budget_100" | "savings_goal_reached" | "recurring_payment" | "debt_due";
   title: string;
   message: string;
   sentToTelegram: boolean;
   read: boolean;
   createdAt: string;
+}
+
+export interface Debt {
+  _id: string;
+  type: "borrowed" | "lent"; // borrowed = men oldim, lent = men berdim
+  personName: string;
+  amount: number;
+  date: string;
+  dueDate: string | null;
+  note: string;
+  status: "pending" | "paid";
+  paidAt: string | null;
 }

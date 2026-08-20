@@ -7,6 +7,7 @@ const Transaction = require('../src/models/Transaction');
 const Budget = require('../src/models/Budget');
 const SavingsGoal = require('../src/models/SavingsGoal');
 const RecurringPayment = require('../src/models/RecurringPayment');
+const Debt = require('../src/models/Debt');
 const { seedCategories } = require('./seedCategories');
 const { currentMonthKey } = require('../src/utils/format');
 
@@ -41,6 +42,7 @@ async function seedDatabase() {
     Budget.deleteMany({ user: user._id }),
     SavingsGoal.deleteMany({ user: user._id }),
     RecurringPayment.deleteMany({ user: user._id }),
+    Debt.deleteMany({ user: user._id }),
   ]);
 
   // --- 20+ tranzaksiya (oxirgi 30 kun) ---
@@ -112,6 +114,29 @@ async function seedDatabase() {
     dayOfMonth: nearDay,
   });
   console.log(`✅ Takrorlanuvchi to'lov seed qilindi (har oyning ${nearDay}-kuni)`);
+
+  // --- Qarzlar (biri yaqin muddatli "men oldim", biri uzoqroq "men berdim") ---
+  await Debt.insertMany([
+    {
+      user: user._id,
+      type: 'borrowed',
+      personName: 'Aziz',
+      amount: 800_000,
+      date: new Date(Date.now() - 5 * 86400000),
+      dueDate: new Date(Date.now() + 2 * 86400000), // 2 kundan keyin — tez orada eslatma
+      note: "Shoshilinch qarz",
+    },
+    {
+      user: user._id,
+      type: 'lent',
+      personName: 'Malika',
+      amount: 350_000,
+      date: new Date(Date.now() - 15 * 86400000),
+      dueDate: new Date(Date.now() + 20 * 86400000),
+      note: "Kitob puli",
+    },
+  ]);
+  console.log("✅ 2 ta qarz yozuvi seed qilindi (biri qaytarish muddati yaqinlashgan)");
 
   console.log('\n🎉 Seed tugadi. Demo login: ' + DEMO_EMAIL + ' / ' + DEMO_PASSWORD);
 }

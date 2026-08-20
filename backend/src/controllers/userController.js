@@ -3,6 +3,7 @@ const Transaction = require('../models/Transaction');
 const Budget = require('../models/Budget');
 const SavingsGoal = require('../models/SavingsGoal');
 const RecurringPayment = require('../models/RecurringPayment');
+const Debt = require('../models/Debt');
 
 async function updateSettings(req, res) {
   try {
@@ -22,13 +23,14 @@ async function updateSettings(req, res) {
 
 async function exportData(req, res) {
   try {
-    const [transactions, budgets, savingsGoals, recurringPayments] = await Promise.all([
+    const [transactions, budgets, savingsGoals, recurringPayments, debts] = await Promise.all([
       Transaction.find({ user: req.userId }),
       Budget.find({ user: req.userId }),
       SavingsGoal.find({ user: req.userId }),
       RecurringPayment.find({ user: req.userId }),
+      Debt.find({ user: req.userId }),
     ]);
-    res.json({ exportedAt: new Date(), transactions, budgets, savingsGoals, recurringPayments });
+    res.json({ exportedAt: new Date(), transactions, budgets, savingsGoals, recurringPayments, debts });
   } catch (err) {
     res.status(500).json({ message: 'Server xatosi', error: err.message });
   }
@@ -65,6 +67,7 @@ async function clearData(req, res) {
       Budget.deleteMany({ user: req.userId }),
       SavingsGoal.deleteMany({ user: req.userId }),
       RecurringPayment.deleteMany({ user: req.userId }),
+      Debt.deleteMany({ user: req.userId }),
     ]);
     res.json({ message: 'Barcha ma\'lumotlar tozalandi' });
   } catch (err) {

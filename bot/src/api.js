@@ -57,6 +57,15 @@ function getSavings(chatId) {
 }
 
 /**
+ * Qarzlar ro'yxati (kim qarzdor, kimga qarzdorsiz).
+ * GET /telegram/debts/:chatId
+ * response (kutilayotgan): { iOwe, owedToMe, items: [{ type, personName, amount, dueDate }] }
+ */
+function getDebts(chatId) {
+  return api.get(`/telegram/debts/${chatId}`);
+}
+
+/**
  * Erkin matndan (masalan "ovqatga 45 ming") tranzaksiya yaratish.
  * Backend AI/regex bilan summa+kategoriyani aniqlaydi.
  * POST /transactions/voice-parse
@@ -83,6 +92,7 @@ module.exports = {
   getSummary,
   getBudget,
   getSavings,
+  getDebts,
   parseVoiceTransaction,
   aiChat,
 };
