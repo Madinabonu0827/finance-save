@@ -1,0 +1,13 @@
+const mongoose = require('mongoose');
+
+async function connectDB() {
+  try {
+    await mongoose.connect(process.env.MONGO_URI);
+    console.log('✅ MongoDB ulandi');
+  } catch (err) {
+    console.error('❌ MongoDB ulanishda xato:', err.message);
+    process.exit(1);
+  }
+}
+
+module.exports = connectDB;
