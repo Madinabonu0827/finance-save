@@ -13,21 +13,23 @@ import {
   Wallet as LogoIcon,
 } from "lucide-react";
 import { useAuth } from "@/contexts/AuthContext";
+import { useLanguage } from "@/contexts/LanguageContext";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
-
-const NAV_ITEMS = [
-  { href: "/dashboard", label: "Bosh sahifa", icon: LayoutDashboard },
-  { href: "/statistics", label: "Statistika", icon: PieChart },
-  { href: "/budget", label: "Byudjet", icon: Wallet },
-  { href: "/savings", label: "Jamg'arma", icon: PiggyBank },
-  { href: "/ai", label: "AI", icon: Sparkles },
-  { href: "/settings", label: "Sozlamalar", icon: Settings },
-];
 
 export function AppShell({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
   const { user, logout } = useAuth();
+  const { t } = useLanguage();
+
+  const NAV_ITEMS = [
+    { href: "/dashboard", label: t("nav.dashboard"), icon: LayoutDashboard },
+    { href: "/statistics", label: t("nav.statistics"), icon: PieChart },
+    { href: "/budget", label: t("nav.budget"), icon: Wallet },
+    { href: "/savings", label: t("nav.savings"), icon: PiggyBank },
+    { href: "/ai", label: t("nav.ai"), icon: Sparkles },
+    { href: "/settings", label: t("nav.settings"), icon: Settings },
+  ];
 
   return (
     <div className="flex min-h-screen w-full">
@@ -62,7 +64,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
         <div className="border-t p-3">
           <div className="flex items-center justify-between gap-2 px-2 py-1">
             <span className="text-sm font-medium truncate">{user?.name}</span>
-            <Button variant="ghost" size="icon" onClick={logout} title="Chiqish">
+            <Button variant="ghost" size="icon" onClick={logout} title={t("nav.logout")}>
               <LogOut className="h-4 w-4" />
             </Button>
           </div>

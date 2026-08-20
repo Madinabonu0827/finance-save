@@ -17,7 +17,7 @@ async function generateLinkCode(req, res) {
       { upsert: true, returnDocument: 'after', setDefaultsOnInsert: true }
     );
 
-    res.json({ code, expiresAt, botUsername: 'AIFinanceUzBot' });
+    res.json({ code, expiresAt, botUsername: process.env.BOT_USERNAME || 'finance_save_bot' });
   } catch (err) {
     res.status(500).json({ message: 'Server xatosi', error: err.message });
   }
@@ -58,6 +58,7 @@ async function status(req, res) {
     res.json({
       linked: !!connection?.linked,
       telegramUsername: connection?.linked ? connection.telegramUsername : null,
+      botUsername: process.env.BOT_USERNAME || 'finance_save_bot',
     });
   } catch (err) {
     res.status(500).json({ message: 'Server xatosi', error: err.message });

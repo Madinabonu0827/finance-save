@@ -18,7 +18,11 @@ const AuthContext = createContext<AuthContextValue | null>(null);
 
 export function AuthProvider({ children }: { children: ReactNode }) {
   const [user, setUser] = useState<User | null>(null);
-  const [loading, setLoading] = useState(true);
+  // Token bo'lmasa boshidanoq "loading" emas — shunda effekt ichida sinxron setState chaqirilmaydi.
+  const [loading, setLoading] = useState(() => {
+    if (typeof window === "undefined") return false;
+    return !!localStorage.getItem("financeai_token");
+  });
   const router = useRouter();
 
   async function refreshUser() {
@@ -33,11 +37,11 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   useEffect(() => {
     const token = typeof window !== "undefined" ? localStorage.getItem("financeai_token") : null;
-    if (!token) {
-      setLoading(false);
-      return;
-    }
-    refreshUser().finally(() => setLoading(false));
+    if (!token) return;
+    // Sahifa ochilganda saqlangan tokenni tekshirish uchun bitta martalik so'rov — natija
+    // keyinroq (promise callback ichida) set qilinadi, effekt tanasida sinxron emas.
+    // eslint-disable-next-line react-hooks/set-state-in-effect
+    refreshUser().then(() => setLoading(false));
   }, []);
 
   async function login(email: string, password: string) {

@@ -7,6 +7,7 @@ import { api, ApiError } from "@/lib/api";
 import { SavingsGoal } from "@/lib/types";
 import { formatMoney, formatDate } from "@/lib/format";
 import { useAuth } from "@/contexts/AuthContext";
+import { useLanguage } from "@/contexts/LanguageContext";
 import { Card, CardContent } from "@/components/ui/card";
 import { Progress } from "@/components/ui/progress";
 import { Button } from "@/components/ui/button";
@@ -24,6 +25,7 @@ import {
 
 export default function SavingsPage() {
   const { user } = useAuth();
+  const { t } = useLanguage();
   const [goals, setGoals] = useState<SavingsGoal[] | null>(null);
   const [error, setError] = useState<string | null>(null);
 
@@ -38,12 +40,14 @@ export default function SavingsPage() {
   const [submitting, setSubmitting] = useState(false);
 
   const load = useCallback(() => {
-    setError(null);
     api
       .get<SavingsGoal[]>("/savings")
-      .then(setGoals)
-      .catch((err) => setError(err instanceof ApiError ? err.message : "Ma'lumotlarni yuklab bo'lmadi"));
-  }, []);
+      .then((goals) => {
+        setGoals(goals);
+        setError(null);
+      })
+      .catch((err) => setError(err instanceof ApiError ? err.message : t("dashboard.loadError")));
+  }, [t]);
 
   useEffect(() => {
     load();
@@ -51,19 +55,19 @@ export default function SavingsPage() {
 
   async function handleCreate() {
     const amount = Number(targetAmount);
-    if (!name.trim()) return toast.error("Nomini kiriting");
-    if (!amount || amount <= 0) return toast.error("Maqsad summani to'g'ri kiriting");
+    if (!name.trim()) return toast.error(t("savings.enterName"));
+    if (!amount || amount <= 0) return toast.error(t("savings.enterValidTarget"));
     setSubmitting(true);
     try {
       await api.post("/savings", { name, targetAmount: amount, deadline: deadline || null });
-      toast.success("Jamg'arma maqsadi yaratildi");
+      toast.success(t("savings.createdToast"));
       setCreateOpen(false);
       setName("");
       setTargetAmount("");
       setDeadline("");
       load();
     } catch (err) {
-      toast.error(err instanceof ApiError ? err.message : "Yaratishda xatolik yuz berdi");
+      toast.error(err instanceof ApiError ? err.message : t("common.genericError"));
     } finally {
       setSubmitting(false);
     }
@@ -72,21 +76,21 @@ export default function SavingsPage() {
   async function handleAddAmount() {
     if (!addGoal) return;
     const amount = Number(addAmount);
-    if (!amount || amount <= 0) return toast.error("Summani to'g'ri kiriting");
+    if (!amount || amount <= 0) return toast.error(t("savings.enterValidAmount"));
     setSubmitting(true);
     try {
       const wasCompleted = addGoal.completed;
       const updated = await api.post<SavingsGoal>(`/savings/${addGoal._id}/add`, { amount });
       if (!wasCompleted && updated.completed) {
-        toast.success(`🎉 Tabriklaymiz! "${addGoal.name}" maqsadiga yetdingiz!`);
+        toast.success(t("savings.completedToast", { name: addGoal.name }));
       } else {
-        toast.success("Mablag' qo'shildi");
+        toast.success(t("savings.addedToast"));
       }
       setAddGoal(null);
       setAddAmount("");
       load();
     } catch (err) {
-      toast.error(err instanceof ApiError ? err.message : "Xatolik yuz berdi");
+      toast.error(err instanceof ApiError ? err.message : t("common.genericError"));
     } finally {
       setSubmitting(false);
     }
@@ -96,22 +100,18 @@ export default function SavingsPage() {
     <div className="max-w-3xl mx-auto p-4 md:p-8 flex flex-col gap-6">
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-2xl font-bold tracking-tight">Jamg&apos;arma maqsadlari</h1>
-          <p className="text-sm text-muted-foreground mt-1">Nimaga pul yig&apos;ayotganingizni kuzatib boring</p>
+          <h1 className="text-2xl font-bold tracking-tight">{t("savings.title")}</h1>
+          <p className="text-sm text-muted-foreground mt-1">{t("savings.subtitle")}</p>
         </div>
         <Button onClick={() => setCreateOpen(true)}>
-          <Plus className="h-4 w-4" /> Yangi maqsad
+          <Plus className="h-4 w-4" /> {t("savings.newGoal")}
         </Button>
       </div>
 
-      {goals === null && !error && <LoadingState label="Jamg'armalar yuklanmoqda..." />}
+      {goals === null && !error && <LoadingState label={t("savings.loading")} />}
       {error && <ErrorState message={error} onRetry={load} />}
       {goals !== null && goals.length === 0 && (
-        <EmptyState
-          title="Hozircha jamg'arma maqsadi yo'q"
-          description="Yangi maqsad yarating — masalan, noutbuk yoki sayohat uchun"
-          icon={PiggyBank}
-        />
+        <EmptyState title={t("savings.emptyTitle")} description={t("savings.emptyDesc")} icon={PiggyBank} />
       )}
 
       {goals !== null && goals.length > 0 && (
@@ -125,7 +125,7 @@ export default function SavingsPage() {
                     <span className="font-medium">{g.name}</span>
                     {g.completed && (
                       <span className="flex items-center gap-1 text-xs font-medium text-emerald-600 dark:text-emerald-400">
-                        <PartyPopper className="h-3.5 w-3.5" /> Bajarildi
+                        <PartyPopper className="h-3.5 w-3.5" /> {t("savings.completed")}
                       </span>
                     )}
                   </div>
@@ -139,7 +139,11 @@ export default function SavingsPage() {
                     </span>
                     <span>{pct}%</span>
                   </div>
-                  {g.deadline && <p className="text-xs text-muted-foreground">Muddat: {formatDate(g.deadline)}</p>}
+                  {g.deadline && (
+                    <p className="text-xs text-muted-foreground">
+                      {t("savings.deadline")} {formatDate(g.deadline)}
+                    </p>
+                  )}
                   {!g.completed && (
                     <Button
                       variant="outline"
@@ -149,7 +153,7 @@ export default function SavingsPage() {
                         setAddAmount("");
                       }}
                     >
-                      <Plus className="h-4 w-4" /> Pul qo&apos;shish
+                      <Plus className="h-4 w-4" /> {t("savings.addMoney")}
                     </Button>
                   )}
                 </CardContent>
@@ -163,16 +167,16 @@ export default function SavingsPage() {
       <Dialog open={createOpen} onOpenChange={setCreateOpen}>
         <DialogContent className="sm:max-w-sm">
           <DialogHeader>
-            <DialogTitle>Yangi jamg&apos;arma maqsadi</DialogTitle>
-            <DialogDescription>Nima uchun pul yig&apos;ayotganingizni belgilang</DialogDescription>
+            <DialogTitle>{t("savings.newGoalTitle")}</DialogTitle>
+            <DialogDescription>{t("savings.newGoalDesc")}</DialogDescription>
           </DialogHeader>
           <div className="flex flex-col gap-4">
             <div className="grid gap-2">
-              <Label>Nomi</Label>
-              <Input value={name} onChange={(e) => setName(e.target.value)} placeholder="Masalan: Yangi noutbuk" />
+              <Label>{t("savings.name")}</Label>
+              <Input value={name} onChange={(e) => setName(e.target.value)} placeholder={t("savings.namePlaceholder")} />
             </div>
             <div className="grid gap-2">
-              <Label>Maqsad summa (so&apos;m)</Label>
+              <Label>{t("savings.targetAmount")}</Label>
               <Input
                 type="number"
                 min={1}
@@ -182,17 +186,17 @@ export default function SavingsPage() {
               />
             </div>
             <div className="grid gap-2">
-              <Label>Muddat (ixtiyoriy)</Label>
+              <Label>{t("savings.deadlineOptional")}</Label>
               <Input type="date" value={deadline} onChange={(e) => setDeadline(e.target.value)} />
             </div>
           </div>
           <DialogFooter>
             <Button variant="outline" onClick={() => setCreateOpen(false)}>
-              Bekor qilish
+              {t("common.cancel")}
             </Button>
             <Button onClick={handleCreate} disabled={submitting}>
               {submitting && <Loader2 className="h-4 w-4 animate-spin" />}
-              Yaratish
+              {t("common.create")}
             </Button>
           </DialogFooter>
         </DialogContent>
@@ -202,10 +206,10 @@ export default function SavingsPage() {
       <Dialog open={!!addGoal} onOpenChange={(o) => !o && setAddGoal(null)}>
         <DialogContent className="sm:max-w-sm">
           <DialogHeader>
-            <DialogTitle>&quot;{addGoal?.name}&quot;ga pul qo&apos;shish</DialogTitle>
+            <DialogTitle>{t("savings.addToGoal", { name: addGoal?.name || "" })}</DialogTitle>
           </DialogHeader>
           <div className="grid gap-2">
-            <Label>Summa (so&apos;m)</Label>
+            <Label>{t("savings.amount")}</Label>
             <Input
               type="number"
               min={1}
@@ -217,11 +221,11 @@ export default function SavingsPage() {
           </div>
           <DialogFooter>
             <Button variant="outline" onClick={() => setAddGoal(null)}>
-              Bekor qilish
+              {t("common.cancel")}
             </Button>
             <Button onClick={handleAddAmount} disabled={submitting}>
               {submitting && <Loader2 className="h-4 w-4 animate-spin" />}
-              Qo&apos;shish
+              {t("common.add")}
             </Button>
           </DialogFooter>
         </DialogContent>

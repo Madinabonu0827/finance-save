@@ -53,6 +53,44 @@ async function create(req, res) {
   }
 }
 
+async function update(req, res) {
+  try {
+    const transaction = await Transaction.findOne({ _id: req.params.id, user: req.userId });
+    if (!transaction) return res.status(404).json({ message: 'Tranzaksiya topilmadi' });
+
+    const { type, amount, categoryId, note, date } = req.body;
+
+    if (type !== undefined) {
+      if (!['expense', 'income'].includes(type)) {
+        return res.status(400).json({ message: 'type "expense" yoki "income" bo\'lishi kerak' });
+      }
+      transaction.type = type;
+    }
+    if (amount !== undefined) {
+      if (!amount || amount <= 0) return res.status(400).json({ message: 'amount musbat son bo\'lishi kerak' });
+      transaction.amount = amount;
+    }
+    if (categoryId !== undefined) {
+      const category = await Category.findById(categoryId);
+      if (!category) return res.status(400).json({ message: 'Kategoriya topilmadi' });
+      transaction.category = categoryId;
+    }
+    if (note !== undefined) transaction.note = note;
+    if (date !== undefined) transaction.date = new Date(date);
+
+    await transaction.save();
+
+    if (transaction.type === 'expense') {
+      await checkBudgetThresholds(req.userId, transaction.category, transaction.date);
+    }
+
+    const populated = await transaction.populate('category');
+    res.json(populated);
+  } catch (err) {
+    res.status(500).json({ message: 'Server xatosi', error: err.message });
+  }
+}
+
 async function remove(req, res) {
   try {
     const transaction = await Transaction.findOneAndDelete({ _id: req.params.id, user: req.userId });
@@ -135,4 +173,4 @@ async function parseOnly(req, res) {
   }
 }
 
-module.exports = { list, create, remove, voiceParse, parseOnly };
+module.exports = { list, create, update, remove, voiceParse, parseOnly };

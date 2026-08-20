@@ -7,6 +7,7 @@ import { api, ApiError } from "@/lib/api";
 import { Budget, Category, RecurringPayment } from "@/lib/types";
 import { formatMoney } from "@/lib/format";
 import { useAuth } from "@/contexts/AuthContext";
+import { useLanguage } from "@/contexts/LanguageContext";
 import { Card, CardContent } from "@/components/ui/card";
 import { Progress } from "@/components/ui/progress";
 import { Button } from "@/components/ui/button";
@@ -20,6 +21,7 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { LoadingState, ErrorState, EmptyState } from "@/components/state-views";
+import { CategoryIcon } from "@/lib/category-icons";
 import {
   Dialog,
   DialogContent,
@@ -36,6 +38,7 @@ interface Row {
 
 export default function BudgetPage() {
   const { user } = useAuth();
+  const { t } = useLanguage();
   const [categories, setCategories] = useState<Category[] | null>(null);
   const [budgets, setBudgets] = useState<Budget[] | null>(null);
   const [recurring, setRecurring] = useState<RecurringPayment[] | null>(null);
@@ -52,7 +55,6 @@ export default function BudgetPage() {
   const [rSubmitting, setRSubmitting] = useState(false);
 
   const load = useCallback(() => {
-    setError(null);
     Promise.all([
       api.get<Category[]>("/categories"),
       api.get<Budget[]>("/budgets"),
@@ -62,9 +64,10 @@ export default function BudgetPage() {
         setCategories(cats);
         setBudgets(buds);
         setRecurring(rec);
+        setError(null);
       })
-      .catch((err) => setError(err instanceof ApiError ? err.message : "Ma'lumotlarni yuklab bo'lmadi"));
-  }, []);
+      .catch((err) => setError(err instanceof ApiError ? err.message : t("dashboard.loadError")));
+  }, [t]);
 
   useEffect(() => {
     load();
@@ -79,17 +82,17 @@ export default function BudgetPage() {
     if (!dialogCategory) return;
     const limit = Number(limitInput);
     if (!limit || limit <= 0) {
-      toast.error("Limitni to'g'ri kiriting");
+      toast.error(t("budget.enterValidLimit"));
       return;
     }
     setSubmitting(true);
     try {
       await api.post("/budgets", { categoryId: dialogCategory._id, limit });
-      toast.success("Byudjet limiti saqlandi");
+      toast.success(t("budget.limitSavedToast"));
       setDialogCategory(null);
       load();
     } catch (err) {
-      toast.error(err instanceof ApiError ? err.message : "Saqlashda xatolik yuz berdi");
+      toast.error(err instanceof ApiError ? err.message : t("common.genericError"));
     } finally {
       setSubmitting(false);
     }
@@ -106,18 +109,18 @@ export default function BudgetPage() {
   async function handleCreateRecurring() {
     const amount = Number(rAmount);
     const day = Number(rDay);
-    if (!rName.trim()) return toast.error("Nomini kiriting");
-    if (!amount || amount <= 0) return toast.error("Summani to'g'ri kiriting");
-    if (!rCategoryId) return toast.error("Kategoriyani tanlang");
-    if (!day || day < 1 || day > 28) return toast.error("Kun 1-28 oralig'ida bo'lishi kerak");
+    if (!rName.trim()) return toast.error(t("budget.enterName"));
+    if (!amount || amount <= 0) return toast.error(t("budget.enterValidAmount"));
+    if (!rCategoryId) return toast.error(t("budget.selectCategory"));
+    if (!day || day < 1 || day > 28) return toast.error(t("budget.dayRangeError"));
     setRSubmitting(true);
     try {
       await api.post("/recurring", { name: rName, amount, categoryId: rCategoryId, dayOfMonth: day });
-      toast.success("Takrorlanuvchi to'lov qo'shildi");
+      toast.success(t("budget.recurringAddedToast"));
       setRecurringOpen(false);
       load();
     } catch (err) {
-      toast.error(err instanceof ApiError ? err.message : "Saqlashda xatolik yuz berdi");
+      toast.error(err instanceof ApiError ? err.message : t("common.genericError"));
     } finally {
       setRSubmitting(false);
     }
@@ -126,10 +129,10 @@ export default function BudgetPage() {
   async function handleDeleteRecurring(id: string) {
     try {
       await api.delete(`/recurring/${id}`);
-      toast.success("O'chirildi");
+      toast.success(t("common.deleted"));
       load();
     } catch (err) {
-      toast.error(err instanceof ApiError ? err.message : "O'chirishda xatolik yuz berdi");
+      toast.error(err instanceof ApiError ? err.message : t("common.genericError"));
     }
   }
 
@@ -148,11 +151,11 @@ export default function BudgetPage() {
   return (
     <div className="max-w-3xl mx-auto p-4 md:p-8 flex flex-col gap-6">
       <div>
-        <h1 className="text-2xl font-bold tracking-tight">Byudjet</h1>
-        <p className="text-sm text-muted-foreground mt-1">Har kategoriya uchun oylik xarajat limitini belgilang</p>
+        <h1 className="text-2xl font-bold tracking-tight">{t("budget.title")}</h1>
+        <p className="text-sm text-muted-foreground mt-1">{t("budget.subtitle")}</p>
       </div>
 
-      {rows === null && !error && <LoadingState label="Byudjet yuklanmoqda..." />}
+      {rows === null && !error && <LoadingState label={t("budget.loading")} />}
       {error && <ErrorState message={error} onRetry={load} />}
 
       {rows !== null && (
@@ -170,11 +173,11 @@ export default function BudgetPage() {
                 <CardContent className="flex flex-col gap-3">
                   <div className="flex items-center justify-between">
                     <div className="flex items-center gap-2">
-                      <span className="text-xl">{category.emoji}</span>
+                      <CategoryIcon name={category.name} className="h-5 w-5 text-muted-foreground" />
                       <span className="font-medium text-sm">{category.name}</span>
                     </div>
-                    {over && <span className="text-xs font-medium text-red-600 dark:text-red-400">Limitdan oshdi</span>}
-                    {near && <span className="text-xs font-medium text-amber-600 dark:text-amber-400">Limitga yaqin</span>}
+                    {over && <span className="text-xs font-medium text-red-600 dark:text-red-400">{t("budget.over")}</span>}
+                    {near && <span className="text-xs font-medium text-amber-600 dark:text-amber-400">{t("budget.near")}</span>}
                   </div>
                   <Progress
                     value={pct}
@@ -189,7 +192,7 @@ export default function BudgetPage() {
                   <p className="text-sm text-muted-foreground">
                     {budget
                       ? `${formatMoney(budget.spent, user?.currency)} / ${formatMoney(budget.limit, user?.currency)}`
-                      : "0 / Limit yo'q"}
+                      : `0 / ${t("budget.noLimit")}`}
                   </p>
                 </CardContent>
               </Card>
@@ -203,20 +206,18 @@ export default function BudgetPage() {
           <div className="flex items-center justify-between">
             <div>
               <h2 className="font-semibold flex items-center gap-2">
-                <RefreshCw className="h-4 w-4" /> Takrorlanuvchi to&apos;lovlar
+                <RefreshCw className="h-4 w-4" /> {t("budget.recurring")}
               </h2>
-              <p className="text-sm text-muted-foreground mt-0.5">
-                Har oy avtomatik eslatma keladigan to&apos;lovlar (ijara, internet va h.k.)
-              </p>
+              <p className="text-sm text-muted-foreground mt-0.5">{t("budget.recurringDesc")}</p>
             </div>
             <Button variant="outline" size="sm" onClick={openRecurringDialog}>
-              <Plus className="h-4 w-4" /> Qo&apos;shish
+              <Plus className="h-4 w-4" /> {t("common.add")}
             </Button>
           </div>
 
-          {recurring === null && <LoadingState label="Yuklanmoqda..." />}
+          {recurring === null && <LoadingState label={t("common.loading")} />}
           {recurring !== null && recurring.length === 0 && (
-            <EmptyState title="Hozircha takrorlanuvchi to'lov yo'q" icon={RefreshCw} />
+            <EmptyState title={t("budget.recurringEmpty")} icon={RefreshCw} />
           )}
           {recurring !== null && recurring.length > 0 && (
             <div className="grid gap-2 sm:grid-cols-2">
@@ -224,11 +225,11 @@ export default function BudgetPage() {
                 <Card key={r._id}>
                   <CardContent className="flex items-center justify-between gap-3">
                     <div className="flex items-center gap-3 min-w-0">
-                      <span className="text-xl shrink-0">{r.category.emoji}</span>
+                      <CategoryIcon name={r.category.name} className="h-5 w-5 shrink-0 text-muted-foreground" />
                       <div className="min-w-0">
                         <p className="font-medium text-sm truncate">{r.name}</p>
                         <p className="text-xs text-muted-foreground">
-                          Har oyning {r.dayOfMonth}-kuni · {formatMoney(r.amount, user?.currency)}
+                          {t("budget.recurringDay", { day: r.dayOfMonth })} · {formatMoney(r.amount, user?.currency)}
                         </p>
                       </div>
                     </div>
@@ -237,7 +238,7 @@ export default function BudgetPage() {
                       size="icon"
                       className="shrink-0 text-muted-foreground hover:text-destructive"
                       onClick={() => handleDeleteRecurring(r._id)}
-                      title="O'chirish"
+                      title={t("common.delete")}
                     >
                       <Trash2 className="h-4 w-4" />
                     </Button>
@@ -252,39 +253,45 @@ export default function BudgetPage() {
       <Dialog open={recurringOpen} onOpenChange={setRecurringOpen}>
         <DialogContent className="sm:max-w-sm">
           <DialogHeader>
-            <DialogTitle>Takrorlanuvchi to&apos;lov qo&apos;shish</DialogTitle>
-            <DialogDescription>Har oy shu kunda Telegramga eslatma keladi</DialogDescription>
+            <DialogTitle>{t("budget.recurringAdd")}</DialogTitle>
+            <DialogDescription>{t("budget.recurringAddDesc")}</DialogDescription>
           </DialogHeader>
           <div className="flex flex-col gap-4">
             <div className="grid gap-2">
-              <Label>Nomi</Label>
-              <Input value={rName} onChange={(e) => setRName(e.target.value)} placeholder="Masalan: Uy ijarasi" />
+              <Label>{t("budget.name")}</Label>
+              <Input value={rName} onChange={(e) => setRName(e.target.value)} placeholder={t("budget.namePlaceholder")} />
             </div>
             <div className="grid grid-cols-2 gap-3">
               <div className="grid gap-2">
-                <Label>Summa</Label>
+                <Label>{t("budget.amount")}</Label>
                 <Input type="number" min={1} value={rAmount} onChange={(e) => setRAmount(e.target.value)} placeholder="0" />
               </div>
               <div className="grid gap-2">
-                <Label>Oyning kuni</Label>
+                <Label>{t("budget.dayOfMonth")}</Label>
                 <Input type="number" min={1} max={28} value={rDay} onChange={(e) => setRDay(e.target.value)} />
               </div>
             </div>
             <div className="grid gap-2">
-              <Label>Kategoriya</Label>
+              <Label>{t("budget.category")}</Label>
               <Select value={rCategoryId} onValueChange={(v) => v && setRCategoryId(v)}>
                 <SelectTrigger className="w-full">
-                  <SelectValue placeholder="Tanlang">
+                  <SelectValue placeholder={t("common.select")}>
                     {(v: string) => {
                       const c = expenseCategories.find((cat) => cat._id === v);
-                      return c ? `${c.emoji} ${c.name}` : "Tanlang";
+                      return c ? (
+                        <span className="flex items-center gap-1.5">
+                          <CategoryIcon name={c.name} className="h-4 w-4 shrink-0" /> {c.name}
+                        </span>
+                      ) : (
+                        t("common.select")
+                      );
                     }}
                   </SelectValue>
                 </SelectTrigger>
                 <SelectContent>
                   {expenseCategories.map((c) => (
                     <SelectItem key={c._id} value={c._id}>
-                      {c.emoji} {c.name}
+                      <CategoryIcon name={c.name} className="h-4 w-4 shrink-0" /> {c.name}
                     </SelectItem>
                   ))}
                 </SelectContent>
@@ -293,11 +300,11 @@ export default function BudgetPage() {
           </div>
           <DialogFooter>
             <Button variant="outline" onClick={() => setRecurringOpen(false)}>
-              Bekor qilish
+              {t("common.cancel")}
             </Button>
             <Button onClick={handleCreateRecurring} disabled={rSubmitting}>
               {rSubmitting && <Loader2 className="h-4 w-4 animate-spin" />}
-              Saqlash
+              {t("common.save")}
             </Button>
           </DialogFooter>
         </DialogContent>
@@ -306,12 +313,13 @@ export default function BudgetPage() {
       <Dialog open={!!dialogCategory} onOpenChange={(o) => !o && setDialogCategory(null)}>
         <DialogContent className="sm:max-w-sm">
           <DialogHeader>
-            <DialogTitle>
-              {dialogCategory?.emoji} {dialogCategory?.name} — limit belgilash
+            <DialogTitle className="flex items-center gap-2">
+              <CategoryIcon name={dialogCategory?.name} className="h-4 w-4" />
+              {dialogCategory?.name} — {t("budget.setLimit")}
             </DialogTitle>
           </DialogHeader>
           <div className="grid gap-2">
-            <Label>Oylik limit (so&apos;m)</Label>
+            <Label>{t("budget.monthlyLimit")}</Label>
             <Input
               type="number"
               min={1}
@@ -323,11 +331,11 @@ export default function BudgetPage() {
           </div>
           <DialogFooter>
             <Button variant="outline" onClick={() => setDialogCategory(null)}>
-              Bekor qilish
+              {t("common.cancel")}
             </Button>
             <Button onClick={handleSave} disabled={submitting}>
               {submitting && <Loader2 className="h-4 w-4 animate-spin" />}
-              Saqlash
+              {t("common.save")}
             </Button>
           </DialogFooter>
         </DialogContent>

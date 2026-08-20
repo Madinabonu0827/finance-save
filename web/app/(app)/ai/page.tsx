@@ -3,6 +3,7 @@
 import { useEffect, useRef, useState, FormEvent } from "react";
 import { Loader2, Send, Sparkles } from "lucide-react";
 import { api, ApiError } from "@/lib/api";
+import { useLanguage } from "@/contexts/LanguageContext";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { cn } from "@/lib/utils";
@@ -12,15 +13,14 @@ interface Message {
   content: string;
 }
 
-const QUICK_QUESTIONS = ["Xarajatlarimni tahlil qil", "Pul tejash bo'yicha maslahat", "Byudjetim ahvoli qanday?"];
-
 export default function AiPage() {
-  const [messages, setMessages] = useState<Message[]>([
-    { role: "assistant", content: "Salom! Men Finance AI maslahatchisiman. Real moliyaviy ma'lumotlaringiz asosida yordam beraman. Nimadan boshlaymiz?" },
-  ]);
+  const { t } = useLanguage();
+  const [messages, setMessages] = useState<Message[]>([{ role: "assistant", content: t("ai.greeting") }]);
   const [input, setInput] = useState("");
   const [sending, setSending] = useState(false);
   const bottomRef = useRef<HTMLDivElement>(null);
+
+  const QUICK_QUESTIONS = [t("ai.q1"), t("ai.q2"), t("ai.q3")];
 
   useEffect(() => {
     bottomRef.current?.scrollIntoView({ behavior: "smooth" });
@@ -35,7 +35,7 @@ export default function AiPage() {
       const res = await api.post<{ reply: string }>("/ai/chat", { message: text });
       setMessages((prev) => [...prev, { role: "assistant", content: res.reply }]);
     } catch (err) {
-      const message = err instanceof ApiError ? err.message : "Javob olishda xatolik yuz berdi";
+      const message = err instanceof ApiError ? err.message : t("ai.error");
       setMessages((prev) => [...prev, { role: "assistant", content: `⚠️ ${message}` }]);
     } finally {
       setSending(false);
@@ -54,8 +54,8 @@ export default function AiPage() {
           <Sparkles className="h-5 w-5" />
         </div>
         <div>
-          <h1 className="font-semibold">AI Maslahatchi</h1>
-          <p className="text-xs text-muted-foreground">Real ma&apos;lumotlaringiz asosida tahlil</p>
+          <h1 className="font-semibold">{t("ai.title")}</h1>
+          <p className="text-xs text-muted-foreground">{t("ai.subtitle")}</p>
         </div>
       </div>
 
@@ -75,7 +75,7 @@ export default function AiPage() {
         ))}
         {sending && (
           <div className="self-start bg-muted rounded-2xl rounded-bl-sm px-4 py-2.5 text-sm flex items-center gap-2 text-muted-foreground">
-            <Loader2 className="h-3.5 w-3.5 animate-spin" /> Yozmoqda...
+            <Loader2 className="h-3.5 w-3.5 animate-spin" /> {t("ai.typing")}
           </div>
         )}
         <div ref={bottomRef} />
@@ -95,7 +95,7 @@ export default function AiPage() {
         <Input
           value={input}
           onChange={(e) => setInput(e.target.value)}
-          placeholder="Savolingizni yozing..."
+          placeholder={t("ai.placeholder")}
           disabled={sending}
         />
         <Button type="submit" size="icon" disabled={sending || !input.trim()}>

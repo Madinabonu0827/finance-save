@@ -1,12 +1,16 @@
 import type { Metadata } from "next";
-import { Geist, Geist_Mono } from "next/font/google";
+import { Inter, Geist_Mono } from "next/font/google";
 import "./globals.css";
 import { AuthProvider } from "@/contexts/AuthContext";
 import { ThemeProvider } from "@/contexts/ThemeContext";
+import { LanguageProvider } from "@/contexts/LanguageContext";
 import { Toaster } from "@/components/ui/sonner";
 
-const geistSans = Geist({
-  variable: "--font-geist-sans",
+// globals.css'dagi `@theme inline` bloki `--font-sans: var(--font-sans)` deb kutadi —
+// shuning uchun shrift o'zgaruvchisi aynan shu nom bilan e'lon qilinishi shart, aks holda
+// brauzer standart (odatda serif) shriftga qaytib ketadi.
+const fontSans = Inter({
+  variable: "--font-sans",
   subsets: ["latin"],
 });
 
@@ -24,13 +28,15 @@ export default function RootLayout({ children }: LayoutProps<"/">) {
   return (
     <html
       lang="uz"
-      className={`${geistSans.variable} ${geistMono.variable} h-full antialiased`}
+      className={`${fontSans.variable} ${geistMono.variable} h-full antialiased`}
       suppressHydrationWarning
     >
       <body className="min-h-full flex flex-col bg-background text-foreground">
         <ThemeProvider>
-          <AuthProvider>{children}</AuthProvider>
-          <Toaster richColors position="top-center" />
+          <LanguageProvider>
+            <AuthProvider>{children}</AuthProvider>
+            <Toaster richColors position="top-center" />
+          </LanguageProvider>
         </ThemeProvider>
       </body>
     </html>

@@ -6,6 +6,7 @@ import { useRouter } from "next/navigation";
 import { toast } from "sonner";
 import { Loader2, Wallet } from "lucide-react";
 import { useAuth, ApiError } from "@/contexts/AuthContext";
+import { useLanguage } from "@/contexts/LanguageContext";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -13,6 +14,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 
 export default function LoginPage() {
   const { login } = useAuth();
+  const { t } = useLanguage();
   const router = useRouter();
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
@@ -23,10 +25,10 @@ export default function LoginPage() {
     setSubmitting(true);
     try {
       await login(email, password);
-      toast.success("Xush kelibsiz!");
+      toast.success(t("login.welcomeToast"));
       router.push("/dashboard");
     } catch (err) {
-      const message = err instanceof ApiError ? err.message : "Kirishda xatolik yuz berdi";
+      const message = err instanceof ApiError ? err.message : t("login.errorToast");
       toast.error(message);
     } finally {
       setSubmitting(false);
@@ -41,23 +43,23 @@ export default function LoginPage() {
             <Wallet className="h-6 w-6" />
           </div>
           <CardTitle className="text-xl">Finance AI</CardTitle>
-          <CardDescription>Hisobingizga kiring</CardDescription>
+          <CardDescription>{t("login.subtitle")}</CardDescription>
         </CardHeader>
         <CardContent>
           <form onSubmit={handleSubmit} className="flex flex-col gap-4">
             <div className="grid gap-2">
-              <Label htmlFor="email">Email</Label>
+              <Label htmlFor="email">{t("login.email")}</Label>
               <Input
                 id="email"
                 type="email"
                 required
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
-                placeholder="siz@misol.uz"
+                placeholder={t("login.emailPlaceholder")}
               />
             </div>
             <div className="grid gap-2">
-              <Label htmlFor="password">Parol</Label>
+              <Label htmlFor="password">{t("login.password")}</Label>
               <Input
                 id="password"
                 type="password"
@@ -69,13 +71,13 @@ export default function LoginPage() {
             </div>
             <Button type="submit" disabled={submitting} className="mt-2">
               {submitting && <Loader2 className="h-4 w-4 animate-spin" />}
-              Kirish
+              {t("login.submit")}
             </Button>
           </form>
           <p className="mt-4 text-center text-sm text-muted-foreground">
-            Hisobingiz yo&apos;qmi?{" "}
+            {t("login.noAccount")}{" "}
             <Link href="/register" className="text-primary underline underline-offset-4">
-              Ro&apos;yxatdan o&apos;tish
+              {t("login.registerLink")}
             </Link>
           </p>
         </CardContent>

@@ -9,10 +9,12 @@ import { formatMoney } from "@/lib/format";
 import { chartColor } from "@/lib/chart-colors";
 import { useAuth } from "@/contexts/AuthContext";
 import { useTheme } from "@/contexts/ThemeContext";
+import { useLanguage } from "@/contexts/LanguageContext";
 import { Card, CardContent } from "@/components/ui/card";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { ChartContainer } from "@/components/ui/chart";
 import { LoadingState, ErrorState, EmptyState } from "@/components/state-views";
+import { CategoryIcon } from "@/lib/category-icons";
 
 type Period = "week" | "month" | "year";
 
@@ -32,46 +34,49 @@ function withinPeriod(dateStr: string, period: Period): boolean {
 export default function StatisticsPage() {
   const { user } = useAuth();
   const { resolvedTheme } = useTheme();
+  const { t } = useLanguage();
   const [transactions, setTransactions] = useState<Transaction[] | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [period, setPeriod] = useState<Period>("month");
   const [type, setType] = useState<"expense" | "income">("expense");
 
   const load = useCallback(() => {
-    setError(null);
     api
       .get<Transaction[]>("/transactions")
-      .then(setTransactions)
-      .catch((err) => setError(err instanceof ApiError ? err.message : "Ma'lumotlarni yuklab bo'lmadi"));
-  }, []);
+      .then((tx) => {
+        setTransactions(tx);
+        setError(null);
+      })
+      .catch((err) => setError(err instanceof ApiError ? err.message : t("dashboard.loadError")));
+  }, [t]);
 
   useEffect(() => {
     load();
   }, [load]);
 
   const filtered = useMemo(
-    () => (transactions ?? []).filter((t) => t.type === type && withinPeriod(t.date, period)),
+    () => (transactions ?? []).filter((tx) => tx.type === type && withinPeriod(tx.date, period)),
     [transactions, type, period]
   );
 
   const allFilteredForPeriod = useMemo(
-    () => (transactions ?? []).filter((t) => withinPeriod(t.date, period)),
+    () => (transactions ?? []).filter((tx) => withinPeriod(tx.date, period)),
     [transactions, period]
   );
 
-  const income = allFilteredForPeriod.filter((t) => t.type === "income").reduce((s, t) => s + t.amount, 0);
-  const expense = allFilteredForPeriod.filter((t) => t.type === "expense").reduce((s, t) => s + t.amount, 0);
+  const income = allFilteredForPeriod.filter((tx) => tx.type === "income").reduce((s, tx) => s + tx.amount, 0);
+  const expense = allFilteredForPeriod.filter((tx) => tx.type === "expense").reduce((s, tx) => s + tx.amount, 0);
   const balance = income - expense;
 
   const byCategory = useMemo(() => {
-    const map = new Map<string, { name: string; emoji: string; amount: number }>();
-    filtered.forEach((t) => {
-      const key = t.category?._id || "boshqa";
+    const map = new Map<string, { name: string; amount: number }>();
+    filtered.forEach((tx) => {
+      const key = tx.category?._id || "boshqa";
       const existing = map.get(key);
       if (existing) {
-        existing.amount += t.amount;
+        existing.amount += tx.amount;
       } else {
-        map.set(key, { name: t.category?.name || "Boshqa", emoji: t.category?.emoji || "💰", amount: t.amount });
+        map.set(key, { name: tx.category?.name || "Boshqa", amount: tx.amount });
       }
     });
     return Array.from(map.values()).sort((a, b) => b.amount - a.amount);
@@ -82,14 +87,14 @@ export default function StatisticsPage() {
 
   // "Top xarajatlar" Xarajat/Daromad tab holatidan qat'i nazar doim xarajatlarni ko'rsatadi.
   const topExpenses = useMemo(() => {
-    const map = new Map<string, { name: string; emoji: string; amount: number }>();
+    const map = new Map<string, { name: string; amount: number }>();
     allFilteredForPeriod
-      .filter((t) => t.type === "expense")
-      .forEach((t) => {
-        const key = t.category?._id || "boshqa";
+      .filter((tx) => tx.type === "expense")
+      .forEach((tx) => {
+        const key = tx.category?._id || "boshqa";
         const existing = map.get(key);
-        if (existing) existing.amount += t.amount;
-        else map.set(key, { name: t.category?.name || "Boshqa", emoji: t.category?.emoji || "💰", amount: t.amount });
+        if (existing) existing.amount += tx.amount;
+        else map.set(key, { name: tx.category?.name || "Boshqa", amount: tx.amount });
       });
     return Array.from(map.values()).sort((a, b) => b.amount - a.amount);
   }, [allFilteredForPeriod]);
@@ -97,17 +102,17 @@ export default function StatisticsPage() {
   return (
     <div className="max-w-3xl mx-auto p-4 md:p-8 flex flex-col gap-6">
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
-        <h1 className="text-2xl font-bold tracking-tight">Statistika</h1>
-        <Tabs value={period} onValueChange={(v) => setPeriod(v as Period)}>
+        <h1 className="text-2xl font-bold tracking-tight">{t("stats.title")}</h1>
+        <Tabs value={period} onValueChange={(v) => v && setPeriod(v as Period)}>
           <TabsList>
-            <TabsTrigger value="week">Hafta</TabsTrigger>
-            <TabsTrigger value="month">Oy</TabsTrigger>
-            <TabsTrigger value="year">Yil</TabsTrigger>
+            <TabsTrigger value="week">{t("stats.week")}</TabsTrigger>
+            <TabsTrigger value="month">{t("stats.month")}</TabsTrigger>
+            <TabsTrigger value="year">{t("stats.year")}</TabsTrigger>
           </TabsList>
         </Tabs>
       </div>
 
-      {transactions === null && !error && <LoadingState label="Statistika yuklanmoqda..." />}
+      {transactions === null && !error && <LoadingState label={t("stats.loading")} />}
       {error && <ErrorState message={error} onRetry={load} />}
 
       {transactions !== null && (
@@ -115,7 +120,7 @@ export default function StatisticsPage() {
           <div className="grid grid-cols-3 gap-3">
             <Card>
               <CardContent className="px-3">
-                <p className="text-xs text-muted-foreground">Daromad</p>
+                <p className="text-xs text-muted-foreground">{t("stats.income")}</p>
                 <p className="text-sm font-semibold text-emerald-600 dark:text-emerald-400 mt-1">
                   +{formatMoney(income, user?.currency)}
                 </p>
@@ -123,7 +128,7 @@ export default function StatisticsPage() {
             </Card>
             <Card>
               <CardContent className="px-3">
-                <p className="text-xs text-muted-foreground">Xarajat</p>
+                <p className="text-xs text-muted-foreground">{t("stats.expense")}</p>
                 <p className="text-sm font-semibold text-red-600 dark:text-red-400 mt-1">
                   -{formatMoney(expense, user?.currency)}
                 </p>
@@ -131,29 +136,26 @@ export default function StatisticsPage() {
             </Card>
             <Card>
               <CardContent className="px-3">
-                <p className="text-xs text-muted-foreground">Balans</p>
+                <p className="text-xs text-muted-foreground">{t("stats.balance")}</p>
                 <p className="text-sm font-semibold mt-1">{formatMoney(balance, user?.currency)}</p>
               </CardContent>
             </Card>
           </div>
 
-          <Tabs value={type} onValueChange={(v) => setType(v as "expense" | "income")}>
+          <Tabs value={type} onValueChange={(v) => v && setType(v as "expense" | "income")}>
             <TabsList>
-              <TabsTrigger value="expense">Xarajatlar</TabsTrigger>
-              <TabsTrigger value="income">Daromadlar</TabsTrigger>
+              <TabsTrigger value="expense">{t("stats.expenses")}</TabsTrigger>
+              <TabsTrigger value="income">{t("stats.incomes")}</TabsTrigger>
             </TabsList>
           </Tabs>
 
           <Card>
             <CardContent>
               <h2 className="font-semibold mb-3">
-                {type === "expense" ? "Xarajatlar" : "Daromadlar"} taqsimoti
+                {t("stats.distribution", { type: type === "expense" ? t("stats.expenses") : t("stats.incomes") })}
               </h2>
               {byCategory.length === 0 ? (
-                <EmptyState
-                  title="Ushbu davrda ma'lumot mavjud emas"
-                  icon={PieChartIcon}
-                />
+                <EmptyState title={t("stats.noData")} icon={PieChartIcon} />
               ) : (
                 <div className="flex flex-col sm:flex-row items-center gap-6">
                   <div className="shrink-0" style={{ width: 220, height: 220 }}>
@@ -194,8 +196,9 @@ export default function StatisticsPage() {
                             className="h-2.5 w-2.5 shrink-0 rounded-full"
                             style={{ backgroundColor: chartColor(i, isDark) }}
                           />
-                          <span className="truncate">
-                            {c.emoji} {c.name}
+                          <span className="truncate flex items-center gap-1.5">
+                            <CategoryIcon name={c.name} className="h-3.5 w-3.5 shrink-0 text-muted-foreground" />
+                            {c.name}
                           </span>
                         </div>
                         <span className="text-muted-foreground shrink-0 ml-2">
@@ -211,15 +214,16 @@ export default function StatisticsPage() {
 
           <Card>
             <CardContent>
-              <h2 className="font-semibold mb-3">Top xarajatlar</h2>
+              <h2 className="font-semibold mb-3">{t("stats.topExpenses")}</h2>
               {topExpenses.length === 0 ? (
-                <p className="text-sm text-muted-foreground">Ushbu davrda xarajatlar mavjud emas</p>
+                <p className="text-sm text-muted-foreground">{t("stats.noExpenses")}</p>
               ) : (
                 <div className="flex flex-col gap-2">
                   {topExpenses.slice(0, 5).map((c) => (
                     <div key={c.name} className="flex items-center justify-between text-sm py-1">
-                      <span>
-                        {c.emoji} {c.name}
+                      <span className="flex items-center gap-1.5">
+                        <CategoryIcon name={c.name} className="h-3.5 w-3.5 shrink-0 text-muted-foreground" />
+                        {c.name}
                       </span>
                       <span className="font-medium">{formatMoney(c.amount, user?.currency)}</span>
                     </div>

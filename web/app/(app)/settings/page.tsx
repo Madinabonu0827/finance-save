@@ -15,6 +15,8 @@ import {
 import { api, ApiError } from "@/lib/api";
 import { useAuth } from "@/contexts/AuthContext";
 import { useTheme } from "@/contexts/ThemeContext";
+import { useLanguage } from "@/contexts/LanguageContext";
+import { Language, LANGUAGE_LABELS, translate } from "@/lib/i18n";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
@@ -29,18 +31,26 @@ import { ConfirmDialog } from "@/components/confirm-dialog";
 import { Separator } from "@/components/ui/separator";
 
 const CURRENCIES: Record<string, string> = { UZS: "UZS — O'zbek so'mi", USD: "USD — AQSh dollari", EUR: "EUR — Yevro" };
-const THEMES: Record<string, string> = { light: "Yorug'", dark: "Qorong'u", system: "Tizim" };
-const LANGUAGES: Record<string, string> = { uz: "O'zbek" };
 
 interface TelegramStatus {
   linked: boolean;
   telegramUsername: string | null;
+  botUsername?: string;
 }
+
+const DEFAULT_BOT_USERNAME = "finance_save_bot";
 
 export default function SettingsPage() {
   const { user, refreshUser, logout } = useAuth();
   const { theme, setTheme } = useTheme();
+  const { t, language, setLanguage } = useLanguage();
   const fileInputRef = useRef<HTMLInputElement>(null);
+
+  const THEMES: Record<string, string> = {
+    light: t("settings.themeLight"),
+    dark: t("settings.themeDark"),
+    system: t("settings.themeSystem"),
+  };
 
   const [tgStatus, setTgStatus] = useState<TelegramStatus | null>(null);
   const [linkCode, setLinkCode] = useState<string | null>(null);
@@ -70,10 +80,11 @@ export default function SettingsPage() {
   async function generateCode() {
     setGeneratingCode(true);
     try {
-      const res = await api.post<{ code: string }>("/telegram/link-code");
+      const res = await api.post<{ code: string; botUsername?: string }>("/telegram/link-code");
       setLinkCode(res.code);
+      if (res.botUsername) setTgStatus((prev) => (prev ? { ...prev, botUsername: res.botUsername } : prev));
     } catch (err) {
-      toast.error(err instanceof ApiError ? err.message : "Kod yaratishda xatolik");
+      toast.error(err instanceof ApiError ? err.message : t("settings.codeGenError"));
     } finally {
       setGeneratingCode(false);
     }
@@ -82,7 +93,7 @@ export default function SettingsPage() {
   function copyCode() {
     if (!linkCode) return;
     navigator.clipboard.writeText(linkCode);
-    toast.success("Kod nusxalandi");
+    toast.success(t("settings.codeCopied"));
   }
 
   async function updateSetting(field: "currency" | "theme" | "language", value: string) {
@@ -91,9 +102,16 @@ export default function SettingsPage() {
       await api.patch("/user/settings", { [field]: value });
       await refreshUser();
       if (field === "theme") setTheme(value as "light" | "dark" | "system");
-      toast.success("Saqlandi");
+      // Til o'zgargan bo'lsa, `t()`ning eski (hali render bo'lmagan) yopilishi o'rniga yangi
+      // tildagi tarjimani to'g'ridan-to'g'ri ishlatamiz — aks holda toast bir zum eski tilda chiqadi.
+      if (field === "language") {
+        setLanguage(value as Language);
+        toast.success(translate(value as Language, "common.saved"));
+      } else {
+        toast.success(t("common.saved"));
+      }
     } catch (err) {
-      toast.error(err instanceof ApiError ? err.message : "Saqlashda xatolik");
+      toast.error(err instanceof ApiError ? err.message : t("common.genericError"));
     } finally {
       setSavingField(null);
     }
@@ -111,9 +129,9 @@ export default function SettingsPage() {
       a.click();
       a.remove();
       URL.revokeObjectURL(url);
-      toast.success("Ma'lumotlar yuklab olindi");
+      toast.success(t("settings.exportedToast"));
     } catch (err) {
-      toast.error(err instanceof ApiError ? err.message : "Eksport qilishda xatolik");
+      toast.error(err instanceof ApiError ? err.message : t("common.genericError"));
     }
   }
 
@@ -131,7 +149,7 @@ export default function SettingsPage() {
       const res = await api.post<{ message: string }>("/user/import", { transactions: parsed.transactions || [] });
       toast.success(res.message);
     } catch {
-      toast.error("Faylni o'qib bo'lmadi — to'g'ri JSON ekanini tekshiring");
+      toast.error(t("settings.importFail"));
     }
   }
 
@@ -139,10 +157,10 @@ export default function SettingsPage() {
     setClearing(true);
     try {
       await api.delete("/user/data");
-      toast.success("Barcha ma'lumotlar tozalandi");
+      toast.success(t("settings.clearedToast"));
       setClearOpen(false);
     } catch (err) {
-      toast.error(err instanceof ApiError ? err.message : "Xatolik yuz berdi");
+      toast.error(err instanceof ApiError ? err.message : t("common.genericError"));
     } finally {
       setClearing(false);
     }
@@ -150,16 +168,16 @@ export default function SettingsPage() {
 
   return (
     <div className="max-w-2xl mx-auto p-4 md:p-8 flex flex-col gap-6">
-      <h1 className="text-2xl font-bold tracking-tight">Sozlamalar</h1>
+      <h1 className="text-2xl font-bold tracking-tight">{t("settings.title")}</h1>
 
       {/* Telegramni ulash */}
       <Card>
         <CardHeader>
           <CardTitle className="flex items-center gap-2 text-base">
-            <Send className="h-4 w-4" /> Telegram bot
+            <Send className="h-4 w-4" /> {t("settings.telegramTitle")}
           </CardTitle>
           <CardDescription>
-            Hisobingizni @AIFinanceUzBot ga ulang — tranzaksiyalar va bildirishnomalar real vaqtda sinxronlanadi
+            {t("settings.telegramDesc", { bot: tgStatus?.botUsername || DEFAULT_BOT_USERNAME })}
           </CardDescription>
         </CardHeader>
         <CardContent>
@@ -167,7 +185,7 @@ export default function SettingsPage() {
           {tgStatus?.linked && (
             <div className="flex items-center gap-2 text-sm text-emerald-600 dark:text-emerald-400">
               <CheckCircle2 className="h-4 w-4" />
-              Ulangan {tgStatus.telegramUsername ? `(@${tgStatus.telegramUsername})` : ""}
+              {t("settings.telegramLinked")} {tgStatus.telegramUsername ? `(@${tgStatus.telegramUsername})` : ""}
             </div>
           )}
           {tgStatus && !tgStatus.linked && (
@@ -175,30 +193,29 @@ export default function SettingsPage() {
               {!linkCode ? (
                 <Button onClick={generateCode} disabled={generatingCode} className="w-fit">
                   {generatingCode && <Loader2 className="h-4 w-4 animate-spin" />}
-                  Telegramni ulash
+                  {t("settings.telegramLink")}
                 </Button>
               ) : (
                 <div className="flex flex-col gap-2">
                   <p className="text-sm text-muted-foreground">
-                    Telegramda{" "}
+                    {t("settings.telegramInstructions", { bot: tgStatus?.botUsername || DEFAULT_BOT_USERNAME })}{" "}
                     <a
-                      href="https://t.me/AIFinanceUzBot"
+                      href={`https://t.me/${tgStatus?.botUsername || DEFAULT_BOT_USERNAME}`}
                       target="_blank"
                       rel="noopener noreferrer"
                       className="text-primary underline underline-offset-4"
                     >
-                      @AIFinanceUzBot
-                    </a>{" "}
-                    ni oching va quyidagi buyruqni yuboring:
+                      @{tgStatus?.botUsername || DEFAULT_BOT_USERNAME}
+                    </a>
                   </p>
                   <div className="flex items-center gap-2">
                     <code className="rounded-md bg-muted px-3 py-1.5 text-sm font-mono">/start {linkCode}</code>
-                    <Button variant="ghost" size="icon" onClick={copyCode} title="Nusxalash">
+                    <Button variant="ghost" size="icon" onClick={copyCode} title={t("common.select")}>
                       <Copy className="h-4 w-4" />
                     </Button>
                   </div>
                   <p className="text-xs text-muted-foreground flex items-center gap-1.5">
-                    <Loader2 className="h-3 w-3 animate-spin" /> Ulanishni kutmoqda...
+                    <Loader2 className="h-3 w-3 animate-spin" /> {t("settings.telegramWaiting")}
                   </p>
                 </div>
               )}
@@ -210,11 +227,11 @@ export default function SettingsPage() {
       {/* Asosiy sozlamalar */}
       <Card>
         <CardHeader>
-          <CardTitle className="text-base">Umumiy</CardTitle>
+          <CardTitle className="text-base">{t("settings.general")}</CardTitle>
         </CardHeader>
         <CardContent className="flex flex-col gap-4">
           <div className="flex items-center justify-between gap-4">
-            <Label>Asosiy valyuta</Label>
+            <Label>{t("settings.currency")}</Label>
             <Select
               value={user?.currency || "UZS"}
               onValueChange={(v) => v && updateSetting("currency", v)}
@@ -234,7 +251,7 @@ export default function SettingsPage() {
           </div>
           <Separator />
           <div className="flex items-center justify-between gap-4">
-            <Label>Mavzu</Label>
+            <Label>{t("settings.theme")}</Label>
             <Select
               value={theme}
               onValueChange={(v) => v && updateSetting("theme", v)}
@@ -254,17 +271,17 @@ export default function SettingsPage() {
           </div>
           <Separator />
           <div className="flex items-center justify-between gap-4">
-            <Label>Til</Label>
+            <Label>{t("settings.language")}</Label>
             <Select
-              value={user?.language || "uz"}
+              value={language}
               onValueChange={(v) => v && updateSetting("language", v)}
               disabled={savingField === "language"}
             >
               <SelectTrigger className="w-44">
-                <SelectValue>{(v: string) => LANGUAGES[v] || v}</SelectValue>
+                <SelectValue>{(v: string) => LANGUAGE_LABELS[v as Language] || v}</SelectValue>
               </SelectTrigger>
               <SelectContent>
-                {Object.entries(LANGUAGES).map(([k, label]) => (
+                {Object.entries(LANGUAGE_LABELS).map(([k, label]) => (
                   <SelectItem key={k} value={k}>
                     {label}
                   </SelectItem>
@@ -278,19 +295,19 @@ export default function SettingsPage() {
       {/* Ma'lumotlar */}
       <Card>
         <CardHeader>
-          <CardTitle className="text-base">Ma&apos;lumotlar</CardTitle>
+          <CardTitle className="text-base">{t("settings.data")}</CardTitle>
         </CardHeader>
         <CardContent className="flex flex-col gap-3">
           <Button variant="outline" className="w-fit" onClick={handleExport}>
-            <Download className="h-4 w-4" /> Ma&apos;lumotlarni eksport qilish (JSON)
+            <Download className="h-4 w-4" /> {t("settings.export")}
           </Button>
           <Button variant="outline" className="w-fit" onClick={handleImportClick}>
-            <Upload className="h-4 w-4" /> Zaxiradan tiklash (JSON import)
+            <Upload className="h-4 w-4" /> {t("settings.import")}
           </Button>
           <input ref={fileInputRef} type="file" accept="application/json" className="hidden" onChange={handleImportFile} />
           <Separator />
           <Button variant="destructive" className="w-fit" onClick={() => setClearOpen(true)}>
-            <Trash2 className="h-4 w-4" /> Barcha ma&apos;lumotlarni tozalash
+            <Trash2 className="h-4 w-4" /> {t("settings.clearData")}
           </Button>
         </CardContent>
       </Card>
@@ -299,25 +316,27 @@ export default function SettingsPage() {
       <Card>
         <CardHeader>
           <CardTitle className="flex items-center gap-2 text-base">
-            <Info className="h-4 w-4" /> Ilova haqida
+            <Info className="h-4 w-4" /> {t("settings.about")}
           </CardTitle>
         </CardHeader>
         <CardContent className="text-sm text-muted-foreground flex flex-col gap-1">
-          <p>Finance AI — shaxsiy moliya ekotizimi. Web va Telegram orqali bitta accountga bog'langan holda ishlaydi.</p>
-          <p>Hisob: {user?.email}</p>
+          <p>{t("settings.aboutText")}</p>
+          <p>
+            {t("settings.account")} {user?.email}
+          </p>
         </CardContent>
       </Card>
 
       <Button variant="ghost" className="w-fit text-muted-foreground" onClick={logout}>
-        Chiqish
+        {t("nav.logout")}
       </Button>
 
       <ConfirmDialog
         open={clearOpen}
         onOpenChange={setClearOpen}
-        title="Barcha ma'lumotlarni tozalash"
-        description="Barcha tranzaksiya, byudjet, jamg'arma va takrorlanuvchi to'lovlar butunlay o'chiriladi. Bu amalni orqaga qaytarib bo'lmaydi."
-        confirmLabel="Ha, tozalash"
+        title={t("settings.clearConfirmTitle")}
+        description={t("settings.clearConfirmDesc")}
+        confirmLabel={t("settings.clearConfirmButton")}
         destructive
         loading={clearing}
         onConfirm={handleClearData}

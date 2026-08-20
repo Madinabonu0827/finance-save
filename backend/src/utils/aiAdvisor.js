@@ -2,7 +2,17 @@
 // AI Maslahatchi foydalanuvchining REAL ma'lumotlari (tranzaksiya/byudjet/jamg'arma) ustida
 // qoida-asosli tahlil dvigateli sifatida ishlaydi. Fake/hardcoded raqam ishlatilmaydi — CLAUDE.md §6 talabiga mos.
 
-const RISKY_KEYWORDS = ['kredit', 'qarz', 'investitsiya', 'aksiya', 'birja', 'kripto', 'soliq', 'foiz stavka'];
+const RISKY_KEYWORDS = [
+  'kredit', 'qarz', 'nasiya', 'investitsiya', 'aksiya', 'birja', 'kripto', 'bitcoin',
+  'soliq', 'foiz stavka', 'ipoteka', 'lizing',
+];
+
+// Toshkent shevasi/so'zlashuv tilidagi variantlar bilan kengaytirilgan trigger so'zlar.
+const ANALYSIS_TRIGGERS = ['tahlil', 'xarajat', 'qayerga ketyapti', 'nimaga sarflay', 'statistika'];
+const SAVING_TRIGGERS = ['tejash', 'tejam', 'save', 'maslahat', 'jamg\'armani oshir', 'iqtisod'];
+const BUDGET_TRIGGERS = ['byudjet', 'limit', 'chegara'];
+const SAVINGS_GOAL_TRIGGERS = ['jamg', "jam'g", 'maqsad'];
+const BALANCE_TRIGGERS = ['balans', 'qancha pul', 'necha pul', 'pulim qancha', 'hisobim'];
 
 const DISCLAIMER =
   "Men moliyaviy maslahatchi o'rnini bosa olmayman. Muhim qarorlar uchun mutaxassisga murojaat qiling.";
@@ -19,8 +29,13 @@ function buildAdvice(message, stats) {
   }
 
   const lower = message.toLowerCase();
+  const hasAny = (triggers) => triggers.some((kw) => lower.includes(kw));
 
-  if (lower.includes('tahlil') || lower.includes('xarajat')) {
+  if (hasAny(BALANCE_TRIGGERS)) {
+    return `💰 Joriy balansingiz: ${stats.balance.toLocaleString('uz-UZ')} so'm.\nBu oy daromad: ${stats.totalIncome.toLocaleString('uz-UZ')} so'm, xarajat: ${stats.totalExpense.toLocaleString('uz-UZ')} so'm.`;
+  }
+
+  if (hasAny(ANALYSIS_TRIGGERS)) {
     if (!stats.byCategory.length) {
       return "Hozircha tranzaksiyalar mavjud emas — tahlil qilish uchun avval xarajat/daromad kiriting.";
     }
@@ -28,12 +43,12 @@ function buildAdvice(message, stats) {
     return `📊 Joriy oyda jami xarajat: ${stats.totalExpense.toLocaleString('uz-UZ')} so'm, daromad: ${stats.totalIncome.toLocaleString('uz-UZ')} so'm.\nEng ko'p sarflagan kategoriyangiz: ${top.name} (${top.amount.toLocaleString('uz-UZ')} so'm). Shu kategoriyaga byudjet limiti qo'yishni tavsiya qilaman.`;
   }
 
-  if (lower.includes('tejash') || lower.includes('save') || lower.includes('maslahat')) {
+  if (hasAny(SAVING_TRIGGERS)) {
     const savingsRate = stats.totalIncome > 0 ? Math.round(((stats.totalIncome - stats.totalExpense) / stats.totalIncome) * 100) : 0;
     return `💡 Joriy oyda daromadingizning ${savingsRate}%ini tejayapsiz.\nTavsiya: har oy daromadning kamida 20%ini jamg'armaga ajrating. Eng katta xarajat kategoriyangizni kuzatib, undagi ortiqcha sarfni qisqartirishga harakat qiling.`;
   }
 
-  if (lower.includes('byudjet')) {
+  if (hasAny(BUDGET_TRIGGERS)) {
     if (!stats.budgets.length) {
       return "Hozircha byudjet limitlari o'rnatilmagan. Byudjet bo'limidan kategoriya uchun oylik limit belgilang — men sizga sarfingizni kuzatib boraman.";
     }
@@ -50,7 +65,7 @@ function buildAdvice(message, stats) {
     return msg;
   }
 
-  if (lower.includes('jamg')) {
+  if (hasAny(SAVINGS_GOAL_TRIGGERS)) {
     if (!stats.savingsGoals.length) {
       return "Hozircha jamg'arma maqsadingiz yo'q. Yangi maqsad yarating — men progressni kuzatib boraman.";
     }

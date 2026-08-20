@@ -11,7 +11,7 @@ orqali ishlaydi.
 finance save/
 ├── web/       — Next.js (TypeScript, Tailwind, shadcn/ui) — to'liq web interfeys
 ├── backend/   — Express + Mongoose REST API — yagona source of truth
-└── bot/       — Telegraf — Telegram @AIFinanceUzBot
+└── bot/       — Telegraf — Telegram @finance_save_bot
 ```
 
 Har papka mustaqil `package.json`ga ega va bir-biriga import qilinmaydi — bitta backend
@@ -91,9 +91,10 @@ qoida-asosli parser.
   ichida oddiy health-check HTTP server ham ishga tushadi, asosiy funksiyaga ta'sir qilmaydi).
 
 **Live URL'lar:**
+
 - Web — https://financesave-web.vercel.app
 - Backend API — https://financeai-backend-2npf.onrender.com/api
-- Bot — [@AIFinanceUzBot](https://t.me/AIFinanceUzBot)
+- Bot — [@finance_save_bot](https://t.me/finance_save_bot) _(eslatma: `BOT_TOKEN` haqiqiy egasi shu bot — nomi promt.md'dagi "@AIFinanceUzBot"dan farq qiladi)_
 
 > Render bepul tarifida ~15 daqiqa faolsizlikdan keyin server "uxlab qoladi" — demo oldidan
 > `curl https://financeai-backend-2npf.onrender.com/api/health` bilan bir marta "isitib" oling.

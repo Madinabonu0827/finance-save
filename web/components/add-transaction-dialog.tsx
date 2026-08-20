@@ -2,13 +2,16 @@
 
 import { useEffect, useState } from "react";
 import { toast } from "sonner";
-import { Loader2, Mic, Square } from "lucide-react";
+import { Loader2, Mic, Square, Trash2 } from "lucide-react";
 import { api, ApiError } from "@/lib/api";
-import { Category } from "@/lib/types";
+import { Category, Transaction } from "@/lib/types";
+import { CategoryIcon } from "@/lib/category-icons";
+import { useLanguage } from "@/contexts/LanguageContext";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
+import { ConfirmDialog } from "@/components/confirm-dialog";
 import {
   Select,
   SelectContent,
@@ -48,14 +51,21 @@ function getSpeechRecognition(): SpeechRecognitionLike | null {
   return Ctor ? new Ctor() : null;
 }
 
+// Joriy UI tiliga qarab ovoz tanish lokali — aniqlik uchun (masalan Toshkent shevasi so'zlashuvi
+// "uz-UZ" lokalida yaxshiroq tanilishi kutiladi).
+const SPEECH_LOCALE: Record<string, string> = { uz: "uz-UZ", en: "en-US", ru: "ru-RU" };
+
 interface Props {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   defaultType: "expense" | "income";
   onSuccess: () => void;
+  editTransaction?: Transaction | null; // berilsa — dialog tahrirlash rejimida ochiladi
 }
 
-export function AddTransactionDialog({ open, onOpenChange, defaultType, onSuccess }: Props) {
+export function AddTransactionDialog({ open, onOpenChange, defaultType, onSuccess, editTransaction }: Props) {
+  const { t, language } = useLanguage();
+  const isEditing = !!editTransaction;
   const [type, setType] = useState<"expense" | "income">(defaultType);
   const [quickText, setQuickText] = useState("");
   const [amount, setAmount] = useState("");
@@ -66,20 +76,34 @@ export function AddTransactionDialog({ open, onOpenChange, defaultType, onSucces
   const [listening, setListening] = useState(false);
   const [submitting, setSubmitting] = useState(false);
   const [speechSupported, setSpeechSupported] = useState(false);
+  const [deleteOpen, setDeleteOpen] = useState(false);
+  const [deleting, setDeleting] = useState(false);
 
+  // Dialog har ochilganda (yoki tahrirlanayotgan tranzaksiya almashganda) formani qayta to'ldiradi —
+  // React docs'ning "prop o'zgarganda state'ni reset qilish" uchun Effect ishlatish tasdiqlangan
+  // holati (https://react.dev/learn/you-might-not-need-an-effect#resetting-all-state-when-a-prop-changes).
+  /* eslint-disable react-hooks/set-state-in-effect */
   useEffect(() => {
     if (!open) return;
-    setType(defaultType);
+    if (editTransaction) {
+      setType(editTransaction.type);
+      setAmount(String(editTransaction.amount));
+      setCategoryId(editTransaction.category?._id || "");
+      setNote(editTransaction.note || "");
+    } else {
+      setType(defaultType);
+      setAmount("");
+      setCategoryId("");
+      setNote("");
+    }
     setQuickText("");
-    setAmount("");
-    setCategoryId("");
-    setNote("");
     setSpeechSupported(!!getSpeechRecognition());
     api
       .get<Category[]>("/categories")
       .then((cats) => setCategories(cats))
-      .catch(() => toast.error("Kategoriyalarni yuklab bo'lmadi"));
-  }, [open, defaultType]);
+      .catch(() => toast.error(t("tx.categoriesLoadError")));
+  }, [open, defaultType, editTransaction, t]);
+  /* eslint-enable react-hooks/set-state-in-effect */
 
   const filteredCategories = categories.filter((c) => c.type === type);
 
@@ -98,10 +122,10 @@ export function AddTransactionDialog({ open, onOpenChange, defaultType, onSucces
       if (result.categoryId) setCategoryId(result.categoryId);
       setNote(text);
       if (!result.confident) {
-        toast.info("Summani aniq tushunmadim — summa va kategoriyani tekshirib, o'zingiz to'g'irlang.");
+        toast.info(t("tx.notConfident"));
       }
     } catch {
-      toast.error("Matnni tahlil qilib bo'lmadi, qo'lda kiriting");
+      toast.error(t("tx.parseError"));
     } finally {
       setParsing(false);
     }
@@ -110,10 +134,10 @@ export function AddTransactionDialog({ open, onOpenChange, defaultType, onSucces
   function startListening() {
     const recognition = getSpeechRecognition();
     if (!recognition) {
-      toast.error("Brauzeringiz ovozli kiritishni qo'llab-quvvatlamaydi");
+      toast.error(t("tx.speechNotSupported"));
       return;
     }
-    recognition.lang = "uz-UZ";
+    recognition.lang = SPEECH_LOCALE[language] || "uz-UZ";
     recognition.onresult = (e) => {
       const transcript = e.results[0][0].transcript;
       setQuickText(transcript);
@@ -128,97 +152,129 @@ export function AddTransactionDialog({ open, onOpenChange, defaultType, onSucces
   async function handleSubmit() {
     const numAmount = Number(amount);
     if (!numAmount || numAmount <= 0) {
-      toast.error("Summani to'g'ri kiriting");
+      toast.error(t("tx.enterValidAmount"));
       return;
     }
     if (!categoryId) {
-      toast.error("Kategoriyani tanlang");
+      toast.error(t("tx.selectCategory"));
       return;
     }
     setSubmitting(true);
     try {
-      await api.post("/transactions", { type, amount: numAmount, categoryId, note });
-      toast.success(type === "expense" ? "Xarajat qo'shildi" : "Daromad qo'shildi");
+      if (isEditing && editTransaction) {
+        await api.patch(`/transactions/${editTransaction._id}`, { type, amount: numAmount, categoryId, note });
+        toast.success(t("tx.updatedToast"));
+      } else {
+        await api.post("/transactions", { type, amount: numAmount, categoryId, note });
+        toast.success(type === "expense" ? t("tx.addedExpenseToast") : t("tx.addedIncomeToast"));
+      }
       onOpenChange(false);
       onSuccess();
     } catch (err) {
-      toast.error(err instanceof ApiError ? err.message : "Saqlashda xatolik yuz berdi");
+      toast.error(err instanceof ApiError ? err.message : t("common.genericError"));
     } finally {
       setSubmitting(false);
     }
   }
 
+  async function handleDelete() {
+    if (!editTransaction) return;
+    setDeleting(true);
+    try {
+      await api.delete(`/transactions/${editTransaction._id}`);
+      toast.success(t("tx.deletedToast"));
+      setDeleteOpen(false);
+      onOpenChange(false);
+      onSuccess();
+    } catch (err) {
+      toast.error(err instanceof ApiError ? err.message : t("common.genericError"));
+    } finally {
+      setDeleting(false);
+    }
+  }
+
   return (
+    <>
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="sm:max-w-md">
         <DialogHeader>
-          <DialogTitle>{type === "expense" ? "Xarajat qo'shish" : "Daromad qo'shish"}</DialogTitle>
-          <DialogDescription>Tez kiritish uchun matn yozing yoki ovozli ayting, keyin tekshirib saqlang.</DialogDescription>
+          <DialogTitle>
+            {isEditing ? t("tx.editTitle") : type === "expense" ? t("tx.addExpenseTitle") : t("tx.addIncomeTitle")}
+          </DialogTitle>
+          <DialogDescription>{isEditing ? t("tx.editDesc") : t("tx.addDesc")}</DialogDescription>
         </DialogHeader>
 
         <div className="flex flex-col gap-4">
-          <div className="grid gap-2">
-            <Label>Tezkor kiritish (ixtiyoriy)</Label>
-            <div className="flex gap-2">
-              <Input
-                placeholder='Masalan: "taksiga 20 ming"'
-                value={quickText}
-                onChange={(e) => setQuickText(e.target.value)}
-                onBlur={() => runParse(quickText)}
-              />
-              {speechSupported && (
-                <Button
-                  type="button"
-                  size="icon"
-                  variant={listening ? "destructive" : "outline"}
-                  onClick={listening ? () => setListening(false) : startListening}
-                  title="Ovozli kiritish"
-                >
-                  {listening ? <Square className="h-4 w-4" /> : <Mic className="h-4 w-4" />}
-                </Button>
+          {!isEditing && (
+            <div className="grid gap-2">
+              <Label>{t("tx.quickEntry")}</Label>
+              <div className="flex gap-2">
+                <Input
+                  placeholder={t("tx.quickPlaceholder")}
+                  value={quickText}
+                  onChange={(e) => setQuickText(e.target.value)}
+                  onBlur={() => runParse(quickText)}
+                />
+                {speechSupported && (
+                  <Button
+                    type="button"
+                    size="icon"
+                    variant={listening ? "destructive" : "outline"}
+                    onClick={listening ? () => setListening(false) : startListening}
+                    title={t("dashboard.voiceInput")}
+                  >
+                    {listening ? <Square className="h-4 w-4" /> : <Mic className="h-4 w-4" />}
+                  </Button>
+                )}
+              </div>
+              {parsing && (
+                <p className="text-xs text-muted-foreground flex items-center gap-1">
+                  <Loader2 className="h-3 w-3 animate-spin" /> {t("tx.detecting")}
+                </p>
               )}
             </div>
-            {parsing && (
-              <p className="text-xs text-muted-foreground flex items-center gap-1">
-                <Loader2 className="h-3 w-3 animate-spin" /> Aniqlanmoqda...
-              </p>
-            )}
-          </div>
+          )}
 
           <div className="grid grid-cols-2 gap-3">
             <div className="grid gap-2">
-              <Label>Turi</Label>
-              <Select value={type} onValueChange={(v) => setType(v as "expense" | "income")}>
+              <Label>{t("tx.type")}</Label>
+              <Select value={type} onValueChange={(v) => v && setType(v as "expense" | "income")}>
                 <SelectTrigger>
-                  <SelectValue>{(v: string) => (v === "income" ? "Daromad" : "Xarajat")}</SelectValue>
+                  <SelectValue>{(v: string) => (v === "income" ? t("tx.typeIncome") : t("tx.typeExpense"))}</SelectValue>
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="expense">Xarajat</SelectItem>
-                  <SelectItem value="income">Daromad</SelectItem>
+                  <SelectItem value="expense">{t("tx.typeExpense")}</SelectItem>
+                  <SelectItem value="income">{t("tx.typeIncome")}</SelectItem>
                 </SelectContent>
               </Select>
             </div>
             <div className="grid gap-2">
-              <Label>Summa</Label>
+              <Label>{t("tx.amount")}</Label>
               <Input type="number" min={1} value={amount} onChange={(e) => setAmount(e.target.value)} placeholder="0" />
             </div>
           </div>
 
           <div className="grid gap-2">
-            <Label>Kategoriya</Label>
+            <Label>{t("tx.category")}</Label>
             <Select value={categoryId} onValueChange={(v) => v && setCategoryId(v)}>
               <SelectTrigger>
-                <SelectValue placeholder="Tanlang">
+                <SelectValue placeholder={t("common.select")}>
                   {(v: string) => {
                     const c = categories.find((cat) => cat._id === v);
-                    return c ? `${c.emoji} ${c.name}` : "Tanlang";
+                    return c ? (
+                      <span className="flex items-center gap-1.5">
+                        <CategoryIcon name={c.name} className="h-4 w-4 shrink-0" /> {c.name}
+                      </span>
+                    ) : (
+                      t("common.select")
+                    );
                   }}
                 </SelectValue>
               </SelectTrigger>
               <SelectContent>
                 {filteredCategories.map((c) => (
                   <SelectItem key={c._id} value={c._id}>
-                    {c.emoji} {c.name}
+                    <CategoryIcon name={c.name} className="h-4 w-4 shrink-0" /> {c.name}
                   </SelectItem>
                 ))}
               </SelectContent>
@@ -226,21 +282,40 @@ export function AddTransactionDialog({ open, onOpenChange, defaultType, onSucces
           </div>
 
           <div className="grid gap-2">
-            <Label>Izoh (ixtiyoriy)</Label>
+            <Label>{t("tx.note")}</Label>
             <Textarea value={note} onChange={(e) => setNote(e.target.value)} rows={2} />
           </div>
         </div>
 
-        <DialogFooter>
-          <Button variant="outline" onClick={() => onOpenChange(false)}>
-            Bekor qilish
-          </Button>
-          <Button onClick={handleSubmit} disabled={submitting}>
-            {submitting && <Loader2 className="h-4 w-4 animate-spin" />}
-            Saqlash
-          </Button>
+        <DialogFooter className={isEditing ? "sm:justify-between" : undefined}>
+          {isEditing && (
+            <Button variant="ghost" className="text-destructive hover:text-destructive" onClick={() => setDeleteOpen(true)}>
+              <Trash2 className="h-4 w-4" /> {t("common.delete")}
+            </Button>
+          )}
+          <div className="flex gap-2">
+            <Button variant="outline" onClick={() => onOpenChange(false)}>
+              {t("common.cancel")}
+            </Button>
+            <Button onClick={handleSubmit} disabled={submitting}>
+              {submitting && <Loader2 className="h-4 w-4 animate-spin" />}
+              {t("common.save")}
+            </Button>
+          </div>
         </DialogFooter>
       </DialogContent>
     </Dialog>
+
+    <ConfirmDialog
+      open={deleteOpen}
+      onOpenChange={setDeleteOpen}
+      title={t("tx.deleteConfirmTitle")}
+      description={t("tx.deleteConfirmDesc")}
+      confirmLabel={t("common.delete")}
+      destructive
+      loading={deleting}
+      onConfirm={handleDelete}
+    />
+    </>
   );
 }

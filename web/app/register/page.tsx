@@ -6,6 +6,7 @@ import { useRouter } from "next/navigation";
 import { toast } from "sonner";
 import { Loader2, Wallet } from "lucide-react";
 import { useAuth, ApiError } from "@/contexts/AuthContext";
+import { useLanguage } from "@/contexts/LanguageContext";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -13,6 +14,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 
 export default function RegisterPage() {
   const { register } = useAuth();
+  const { t } = useLanguage();
   const router = useRouter();
   const [name, setName] = useState("");
   const [email, setEmail] = useState("");
@@ -24,10 +26,10 @@ export default function RegisterPage() {
     setSubmitting(true);
     try {
       await register(name, email, password);
-      toast.success("Hisob yaratildi!");
+      toast.success(t("register.successToast"));
       router.push("/dashboard");
     } catch (err) {
-      const message = err instanceof ApiError ? err.message : "Ro'yxatdan o'tishda xatolik yuz berdi";
+      const message = err instanceof ApiError ? err.message : t("register.errorToast");
       toast.error(message);
     } finally {
       setSubmitting(false);
@@ -42,27 +44,33 @@ export default function RegisterPage() {
             <Wallet className="h-6 w-6" />
           </div>
           <CardTitle className="text-xl">Finance AI</CardTitle>
-          <CardDescription>Yangi hisob yarating</CardDescription>
+          <CardDescription>{t("register.subtitle")}</CardDescription>
         </CardHeader>
         <CardContent>
           <form onSubmit={handleSubmit} className="flex flex-col gap-4">
             <div className="grid gap-2">
-              <Label htmlFor="name">Ism</Label>
-              <Input id="name" required value={name} onChange={(e) => setName(e.target.value)} placeholder="Ismingiz" />
+              <Label htmlFor="name">{t("register.name")}</Label>
+              <Input
+                id="name"
+                required
+                value={name}
+                onChange={(e) => setName(e.target.value)}
+                placeholder={t("register.namePlaceholder")}
+              />
             </div>
             <div className="grid gap-2">
-              <Label htmlFor="email">Email</Label>
+              <Label htmlFor="email">{t("login.email")}</Label>
               <Input
                 id="email"
                 type="email"
                 required
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
-                placeholder="siz@misol.uz"
+                placeholder={t("login.emailPlaceholder")}
               />
             </div>
             <div className="grid gap-2">
-              <Label htmlFor="password">Parol</Label>
+              <Label htmlFor="password">{t("login.password")}</Label>
               <Input
                 id="password"
                 type="password"
@@ -70,18 +78,18 @@ export default function RegisterPage() {
                 minLength={6}
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
-                placeholder="Kamida 6 belgi"
+                placeholder={t("register.passwordPlaceholder")}
               />
             </div>
             <Button type="submit" disabled={submitting} className="mt-2">
               {submitting && <Loader2 className="h-4 w-4 animate-spin" />}
-              Ro&apos;yxatdan o&apos;tish
+              {t("register.submit")}
             </Button>
           </form>
           <p className="mt-4 text-center text-sm text-muted-foreground">
-            Hisobingiz bormi?{" "}
+            {t("register.haveAccount")}{" "}
             <Link href="/login" className="text-primary underline underline-offset-4">
-              Kirish
+              {t("register.loginLink")}
             </Link>
           </p>
         </CardContent>
