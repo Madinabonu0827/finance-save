@@ -1,0 +1,19 @@
+name: Keep Render services awake
+
+# Render'ning bepul tarifi ~15 daqiqa harakatsizlikdan keyin uxlab qoladi.
+# Bu workflow har 10 daqiqada backend va bot health-check endpointlariga so'rov
+# yuborib, ularni doim "uyg'oq" ushlab turadi. Public repo uchun GitHub Actions bepul.
+
+on:
+  schedule:
+    - cron: "*/10 * * * *"
+  workflow_dispatch: {} # qo'lda ham ishga tushirish mumkin (Actions tab'dan)
+
+jobs:
+  ping:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Ping backend
+        run: curl -sf --max-time 20 https://financeai-backend-2npf.onrender.com/api/health || true
+      - name: Ping bot
+        run: curl -sf --max-time 20 https://financeai-bot.onrender.com/ || true
