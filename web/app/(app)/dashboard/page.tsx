@@ -28,6 +28,7 @@ export default function DashboardPage() {
   const [dialogOpen, setDialogOpen] = useState(false);
   const [dialogType, setDialogType] = useState<"expense" | "income">("expense");
   const [editingTx, setEditingTx] = useState<Transaction | null>(null);
+  const [autoStartVoice, setAutoStartVoice] = useState(false);
 
   const load = useCallback(() => {
     Promise.all([api.get<Transaction[]>("/transactions?limit=10"), api.get<Summary>("/dashboard/summary")])
@@ -50,12 +51,21 @@ export default function DashboardPage() {
   function openDialog(type: "expense" | "income") {
     setEditingTx(null);
     setDialogType(type);
+    setAutoStartVoice(false);
+    setDialogOpen(true);
+  }
+
+  function openVoiceDialog() {
+    setEditingTx(null);
+    setDialogType("expense");
+    setAutoStartVoice(true);
     setDialogOpen(true);
   }
 
   function openEditDialog(tx: Transaction) {
     setEditingTx(tx);
     setDialogType(tx.type);
+    setAutoStartVoice(false);
     setDialogOpen(true);
   }
 
@@ -102,11 +112,11 @@ export default function DashboardPage() {
         <Button className="flex-1" variant="destructive" onClick={() => openDialog("expense")}>
           <Plus className="h-4 w-4" /> {t("dashboard.addExpense")}
         </Button>
+        <Button variant="outline" size="icon" onClick={openVoiceDialog} title={t("dashboard.voiceInput")}>
+          <Mic className="h-4 w-4" />
+        </Button>
         <Button className="flex-1" onClick={() => openDialog("income")}>
           <Plus className="h-4 w-4" /> {t("dashboard.addIncome")}
-        </Button>
-        <Button variant="outline" size="icon" onClick={() => openDialog("expense")} title={t("dashboard.voiceInput")}>
-          <Mic className="h-4 w-4" />
         </Button>
       </div>
 
@@ -158,6 +168,7 @@ export default function DashboardPage() {
         }}
         defaultType={dialogType}
         editTransaction={editingTx}
+        autoStartVoice={autoStartVoice}
         onSuccess={load}
       />
     </div>

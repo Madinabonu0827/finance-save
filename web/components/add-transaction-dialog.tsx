@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { toast } from "sonner";
 import { Loader2, Mic, Square, Trash2 } from "lucide-react";
 import { api, ApiError } from "@/lib/api";
@@ -61,9 +61,17 @@ interface Props {
   defaultType: "expense" | "income";
   onSuccess: () => void;
   editTransaction?: Transaction | null; // berilsa — dialog tahrirlash rejimida ochiladi
+  autoStartVoice?: boolean; // true bo'lsa, dialog ochilishi bilan ovoz yozish darhol boshlanadi
 }
 
-export function AddTransactionDialog({ open, onOpenChange, defaultType, onSuccess, editTransaction }: Props) {
+export function AddTransactionDialog({
+  open,
+  onOpenChange,
+  defaultType,
+  onSuccess,
+  editTransaction,
+  autoStartVoice,
+}: Props) {
   const { t, language } = useLanguage();
   const isEditing = !!editTransaction;
   const [type, setType] = useState<"expense" | "income">(defaultType);
@@ -78,6 +86,7 @@ export function AddTransactionDialog({ open, onOpenChange, defaultType, onSucces
   const [speechSupported, setSpeechSupported] = useState(false);
   const [deleteOpen, setDeleteOpen] = useState(false);
   const [deleting, setDeleting] = useState(false);
+  const autoStartedRef = useRef(false); // shu "ochiq" sessiyada avtomatik boshlanganmi
 
   // Dialog har ochilganda (yoki tahrirlanayotgan tranzaksiya almashganda) formani qayta to'ldiradi —
   // React docs'ning "prop o'zgarganda state'ni reset qilish" uchun Effect ishlatish tasdiqlangan
@@ -98,6 +107,7 @@ export function AddTransactionDialog({ open, onOpenChange, defaultType, onSucces
     }
     setQuickText("");
     setSpeechSupported(!!getSpeechRecognition());
+    autoStartedRef.current = false;
     api
       .get<Category[]>("/categories")
       .then((cats) => setCategories(cats))
@@ -148,6 +158,16 @@ export function AddTransactionDialog({ open, onOpenChange, defaultType, onSucces
     recognition.start();
     setListening(true);
   }
+
+  // Mikrofon tugmasi bosilib ochilgan bo'lsa (autoStartVoice=true), foydalanuvchi modal ichida
+  // yana mic tugmasini bosishi shart bo'lmasin — ovoz yozish darhol o'zi boshlanadi.
+  useEffect(() => {
+    if (open && autoStartVoice && speechSupported && !isEditing && !autoStartedRef.current) {
+      autoStartedRef.current = true;
+      startListening();
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [open, autoStartVoice, speechSupported, isEditing]);
 
   async function handleSubmit() {
     const numAmount = Number(amount);
