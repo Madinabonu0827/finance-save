@@ -2,9 +2,9 @@
 
 import { useCallback, useEffect, useState } from "react";
 import { toast } from "sonner";
-import { Loader2 } from "lucide-react";
+import { Loader2, Plus, Trash2, RefreshCw } from "lucide-react";
 import { api, ApiError } from "@/lib/api";
-import { Budget, Category } from "@/lib/types";
+import { Budget, Category, RecurringPayment } from "@/lib/types";
 import { formatMoney } from "@/lib/format";
 import { useAuth } from "@/contexts/AuthContext";
 import { Card, CardContent } from "@/components/ui/card";
@@ -12,12 +12,20 @@ import { Progress } from "@/components/ui/progress";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { LoadingState, ErrorState } from "@/components/state-views";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
+import { LoadingState, ErrorState, EmptyState } from "@/components/state-views";
 import {
   Dialog,
   DialogContent,
   DialogHeader,
   DialogTitle,
+  DialogDescription,
   DialogFooter,
 } from "@/components/ui/dialog";
 
@@ -30,17 +38,30 @@ export default function BudgetPage() {
   const { user } = useAuth();
   const [categories, setCategories] = useState<Category[] | null>(null);
   const [budgets, setBudgets] = useState<Budget[] | null>(null);
+  const [recurring, setRecurring] = useState<RecurringPayment[] | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [dialogCategory, setDialogCategory] = useState<Category | null>(null);
   const [limitInput, setLimitInput] = useState("");
   const [submitting, setSubmitting] = useState(false);
 
+  const [recurringOpen, setRecurringOpen] = useState(false);
+  const [rName, setRName] = useState("");
+  const [rAmount, setRAmount] = useState("");
+  const [rCategoryId, setRCategoryId] = useState("");
+  const [rDay, setRDay] = useState("1");
+  const [rSubmitting, setRSubmitting] = useState(false);
+
   const load = useCallback(() => {
     setError(null);
-    Promise.all([api.get<Category[]>("/categories"), api.get<Budget[]>("/budgets")])
-      .then(([cats, buds]) => {
+    Promise.all([
+      api.get<Category[]>("/categories"),
+      api.get<Budget[]>("/budgets"),
+      api.get<RecurringPayment[]>("/recurring"),
+    ])
+      .then(([cats, buds, rec]) => {
         setCategories(cats);
         setBudgets(buds);
+        setRecurring(rec);
       })
       .catch((err) => setError(err instanceof ApiError ? err.message : "Ma'lumotlarni yuklab bo'lmadi"));
   }, []);
@@ -73,6 +94,46 @@ export default function BudgetPage() {
       setSubmitting(false);
     }
   }
+
+  function openRecurringDialog() {
+    setRName("");
+    setRAmount("");
+    setRCategoryId("");
+    setRDay("1");
+    setRecurringOpen(true);
+  }
+
+  async function handleCreateRecurring() {
+    const amount = Number(rAmount);
+    const day = Number(rDay);
+    if (!rName.trim()) return toast.error("Nomini kiriting");
+    if (!amount || amount <= 0) return toast.error("Summani to'g'ri kiriting");
+    if (!rCategoryId) return toast.error("Kategoriyani tanlang");
+    if (!day || day < 1 || day > 28) return toast.error("Kun 1-28 oralig'ida bo'lishi kerak");
+    setRSubmitting(true);
+    try {
+      await api.post("/recurring", { name: rName, amount, categoryId: rCategoryId, dayOfMonth: day });
+      toast.success("Takrorlanuvchi to'lov qo'shildi");
+      setRecurringOpen(false);
+      load();
+    } catch (err) {
+      toast.error(err instanceof ApiError ? err.message : "Saqlashda xatolik yuz berdi");
+    } finally {
+      setRSubmitting(false);
+    }
+  }
+
+  async function handleDeleteRecurring(id: string) {
+    try {
+      await api.delete(`/recurring/${id}`);
+      toast.success("O'chirildi");
+      load();
+    } catch (err) {
+      toast.error(err instanceof ApiError ? err.message : "O'chirishda xatolik yuz berdi");
+    }
+  }
+
+  const expenseCategories = categories?.filter((c) => c.type === "expense") ?? [];
 
   const rows: Row[] | null =
     categories && budgets
@@ -136,6 +197,111 @@ export default function BudgetPage() {
           })}
         </div>
       )}
+
+      {rows !== null && (
+        <div className="flex flex-col gap-3">
+          <div className="flex items-center justify-between">
+            <div>
+              <h2 className="font-semibold flex items-center gap-2">
+                <RefreshCw className="h-4 w-4" /> Takrorlanuvchi to&apos;lovlar
+              </h2>
+              <p className="text-sm text-muted-foreground mt-0.5">
+                Har oy avtomatik eslatma keladigan to&apos;lovlar (ijara, internet va h.k.)
+              </p>
+            </div>
+            <Button variant="outline" size="sm" onClick={openRecurringDialog}>
+              <Plus className="h-4 w-4" /> Qo&apos;shish
+            </Button>
+          </div>
+
+          {recurring === null && <LoadingState label="Yuklanmoqda..." />}
+          {recurring !== null && recurring.length === 0 && (
+            <EmptyState title="Hozircha takrorlanuvchi to'lov yo'q" icon={RefreshCw} />
+          )}
+          {recurring !== null && recurring.length > 0 && (
+            <div className="grid gap-2 sm:grid-cols-2">
+              {recurring.map((r) => (
+                <Card key={r._id}>
+                  <CardContent className="flex items-center justify-between gap-3">
+                    <div className="flex items-center gap-3 min-w-0">
+                      <span className="text-xl shrink-0">{r.category.emoji}</span>
+                      <div className="min-w-0">
+                        <p className="font-medium text-sm truncate">{r.name}</p>
+                        <p className="text-xs text-muted-foreground">
+                          Har oyning {r.dayOfMonth}-kuni · {formatMoney(r.amount, user?.currency)}
+                        </p>
+                      </div>
+                    </div>
+                    <Button
+                      variant="ghost"
+                      size="icon"
+                      className="shrink-0 text-muted-foreground hover:text-destructive"
+                      onClick={() => handleDeleteRecurring(r._id)}
+                      title="O'chirish"
+                    >
+                      <Trash2 className="h-4 w-4" />
+                    </Button>
+                  </CardContent>
+                </Card>
+              ))}
+            </div>
+          )}
+        </div>
+      )}
+
+      <Dialog open={recurringOpen} onOpenChange={setRecurringOpen}>
+        <DialogContent className="sm:max-w-sm">
+          <DialogHeader>
+            <DialogTitle>Takrorlanuvchi to&apos;lov qo&apos;shish</DialogTitle>
+            <DialogDescription>Har oy shu kunda Telegramga eslatma keladi</DialogDescription>
+          </DialogHeader>
+          <div className="flex flex-col gap-4">
+            <div className="grid gap-2">
+              <Label>Nomi</Label>
+              <Input value={rName} onChange={(e) => setRName(e.target.value)} placeholder="Masalan: Uy ijarasi" />
+            </div>
+            <div className="grid grid-cols-2 gap-3">
+              <div className="grid gap-2">
+                <Label>Summa</Label>
+                <Input type="number" min={1} value={rAmount} onChange={(e) => setRAmount(e.target.value)} placeholder="0" />
+              </div>
+              <div className="grid gap-2">
+                <Label>Oyning kuni</Label>
+                <Input type="number" min={1} max={28} value={rDay} onChange={(e) => setRDay(e.target.value)} />
+              </div>
+            </div>
+            <div className="grid gap-2">
+              <Label>Kategoriya</Label>
+              <Select value={rCategoryId} onValueChange={(v) => v && setRCategoryId(v)}>
+                <SelectTrigger className="w-full">
+                  <SelectValue placeholder="Tanlang">
+                    {(v: string) => {
+                      const c = expenseCategories.find((cat) => cat._id === v);
+                      return c ? `${c.emoji} ${c.name}` : "Tanlang";
+                    }}
+                  </SelectValue>
+                </SelectTrigger>
+                <SelectContent>
+                  {expenseCategories.map((c) => (
+                    <SelectItem key={c._id} value={c._id}>
+                      {c.emoji} {c.name}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setRecurringOpen(false)}>
+              Bekor qilish
+            </Button>
+            <Button onClick={handleCreateRecurring} disabled={rSubmitting}>
+              {rSubmitting && <Loader2 className="h-4 w-4 animate-spin" />}
+              Saqlash
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
 
       <Dialog open={!!dialogCategory} onOpenChange={(o) => !o && setDialogCategory(null)}>
         <DialogContent className="sm:max-w-sm">

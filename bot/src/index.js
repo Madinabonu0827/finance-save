@@ -2,6 +2,7 @@
 // Alohida DB ishlatmaydi, hamma narsa backend REST API orqali (./api.js) amalga oshadi.
 
 require("dotenv").config();
+const http = require("http");
 const { Telegraf, Markup } = require("telegraf");
 const api = require("./api");
 
@@ -11,6 +12,17 @@ if (!BOT_TOKEN) {
   console.error("❌ BOT_TOKEN topilmadi. .env faylida BOT_TOKEN ni sozlang.");
   process.exit(1);
 }
+
+// Render'ning bepul tarifida faqat Web Service (portga ulanadigan) xizmatlar ruxsat etiladi —
+// Background Worker yo'q. Bot uzoq so'rovlar (long polling) bilan ishlaydi, lekin Render uni
+// "tirik" deb bilishi uchun shu oddiy health-check server $PORT'ga ulanadi.
+const PORT = process.env.PORT || 3001;
+http
+  .createServer((req, res) => {
+    res.writeHead(200, { "Content-Type": "text/plain" });
+    res.end("Finance AI bot ishlamoqda");
+  })
+  .listen(PORT, () => console.log(`🌐 Health-check server ${PORT} portida`));
 
 const bot = new Telegraf(BOT_TOKEN);
 
