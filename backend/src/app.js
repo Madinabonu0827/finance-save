@@ -11,6 +11,7 @@ const notificationRoutes = require('./routes/notificationRoutes');
 const userRoutes = require('./routes/userRoutes');
 const telegramRoutes = require('./routes/telegramRoutes');
 const aiRoutes = require('./routes/aiRoutes');
+const dashboardRoutes = require('./routes/dashboardRoutes');
 const { notFound, errorHandler } = require('./middleware/errorHandler');
 
 const app = express();
@@ -30,6 +31,7 @@ app.use('/api/notifications', notificationRoutes);
 app.use('/api/user', userRoutes);
 app.use('/api/telegram', telegramRoutes);
 app.use('/api/ai', aiRoutes);
+app.use('/api/dashboard', dashboardRoutes);
 
 app.use(notFound);
 app.use(errorHandler);

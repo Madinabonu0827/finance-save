@@ -109,4 +109,30 @@ async function voiceParse(req, res) {
   }
 }
 
-module.exports = { list, create, remove, voiceParse };
+// Web'dagi ovozli/tezkor kiritish uchun — FAQAT aniqlaydi, saqlamaydi (AI qoidasi: foydalanuvchi
+// tasdiqlashdan oldin tahrirlay olishi kerak). req.userId `requireAuth` orqali JWT'dan keladi.
+async function parseOnly(req, res) {
+  try {
+    const { text } = req.body;
+    if (!text) return res.status(400).json({ message: 'text majburiy' });
+
+    const parsed = parseTransactionText(text);
+
+    let category = null;
+    if (parsed.categoryName) {
+      category = await Category.findOne({ name: parsed.categoryName, isDefault: true });
+    }
+
+    res.json({
+      amount: parsed.amount,
+      type: parsed.type,
+      categoryId: category?._id || null,
+      categoryName: category ? `${category.emoji} ${category.name}` : null,
+      confident: parsed.confident,
+    });
+  } catch (err) {
+    res.status(500).json({ message: 'Server xatosi', error: err.message });
+  }
+}
+
+module.exports = { list, create, remove, voiceParse, parseOnly };
