@@ -86,10 +86,14 @@ qoida-asosli parser.
 ## Deploy
 
 - **Backend** → Render (Web Service), Root Directory = `backend`, `PORT` env'dan o'qiladi.
-- **Web** → Vercel, Root Directory = `web`, `NEXT_PUBLIC_API_URL` = backend'ning live URL'i.
-- **Bot** → Render (Background Worker), Root Directory = `bot`.
+- **Web** → Vercel, Root Directory = `web`, `NEXT_PUBLIC_API_URL` = backend'ning live URL'i (`web/.env.production`).
+- **Bot** → Render (Web Service — bepul tarifda Background Worker mavjud emas, shuning uchun bot
+  ichida oddiy health-check HTTP server ham ishga tushadi, asosiy funksiyaga ta'sir qilmaydi).
 
-Live URL'lar (deploy qilingandan keyin to'ldiriladi):
-- Web — _(link)_
-- Backend API — _(link)_
+**Live URL'lar:**
+- Web — https://financesave-web.vercel.app
+- Backend API — https://financeai-backend-2npf.onrender.com/api
 - Bot — [@AIFinanceUzBot](https://t.me/AIFinanceUzBot)
+
+> Render bepul tarifida ~15 daqiqa faolsizlikdan keyin server "uxlab qoladi" — demo oldidan
+> `curl https://financeai-backend-2npf.onrender.com/api/health` bilan bir marta "isitib" oling.
