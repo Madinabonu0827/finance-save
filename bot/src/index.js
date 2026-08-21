@@ -75,38 +75,64 @@ async function handleApiError(ctx, err) {
 
 // --- /start ---
 
+function welcomeText(firstName, extraNote) {
+  return (
+    `Salom, ${firstName}!\n\n` +
+    `🤖 AI Finance Bot — shaxsiy moliyaviy maslahatchingizga xush kelibsiz.\n\n` +
+    `Bizning imkoniyatlarimiz:\n` +
+    `✅ Daromad va xarajatlarni oson kiritish\n` +
+    `✅ Oylik limitlar (byudjetlar) o'rnatish\n` +
+    `✅ Moliyaviy statistika va grafiklar\n` +
+    `✅ Sun'iy intellektdan shaxsiy maslahatlar\n\n` +
+    `📱 Qulay Telegram Mini App interfeysi\n\n` +
+    `Mini App'ga kirish uchun quyidagi tugmani bosing:` +
+    (extraNote ? `\n\n${extraNote}` : "")
+  );
+}
+
 bot.start(async (ctx) => {
   const chatId = String(ctx.chat.id);
   const code = ctx.startPayload && ctx.startPayload.trim();
   const telegramUsername = ctx.from.username || ctx.from.first_name || "";
+  const firstName = ctx.from.first_name || "do'st";
 
   if (code) {
     try {
       const res = await api.linkTelegram({ code, chatId, telegramUsername });
-      const name = res.data?.name || "foydalanuvchi";
-      await ctx.reply(`✅ Hisobingiz ulandi, ${name}!`, mainMenu);
+      const name = res.data?.name || firstName;
+      await ctx.reply(
+        `Salom, ${name}!\n\n✅ Hisobingiz muvaffaqiyatli ulandi!`,
+        Object.assign({}, mainMenu, {
+          reply_markup: Object.assign({}, mainMenu.reply_markup, {
+            inline_keyboard: [[Markup.button.webApp("🚀 Mini Appni ochish", WEB_APP_URL)]],
+          }),
+        })
+      );
     } catch (err) {
       await handleApiError(ctx, err);
     }
     return;
   }
 
+  let extraNote = "";
   try {
     await api.getMe(chatId);
-    await ctx.reply("👋 Asosiy menyu:", mainMenu);
   } catch (err) {
     const status = err.response?.status;
     if (status === 401 || status === 404) {
-      await ctx.reply(
-        "👋 Xush kelibsiz!\n\nWeb ilovada \"Telegramni ulash\" tugmasini bosib, kodni shu yerga yuboring:\n/start <kod>",
-        Markup.inlineKeyboard([
-          [Markup.button.webApp("🚀 Web ilovani ochish", WEB_APP_URL)],
-        ])
-      );
-    } else {
-      await handleApiError(ctx, err);
+      extraNote =
+        '🔗 Hisobingizni ulash uchun Web ilovada "Telegramni ulash" tugmasini bosib, olingan kodni yuboring:\n/start <kod>';
     }
   }
+
+  await ctx.reply(
+    welcomeText(firstName, extraNote),
+    Object.assign({}, mainMenu, {
+      reply_markup: Object.assign({}, mainMenu.reply_markup, {
+        inline_keyboard: [[Markup.button.webApp("🚀 Mini Appni ochish", WEB_APP_URL)]],
+      }),
+    })
+  );
 });
 
 // --- 💰 Balans ---
