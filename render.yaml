@@ -1,0 +1,43 @@
+# Render Blueprint — bitta fayldan ikkala servisni yaratish
+# Render Dashboard → New + → Blueprint → shu reponi tanlash → MONGO_URI va BOT_TOKEN qiymatlarini kiritish → Apply
+services:
+  # 1) Backend — Express + Mongoose REST API
+  - type: web
+    name: financesave-backend
+    runtime: node
+    rootDir: backend
+    plan: free
+    region: oregon
+    branch: main
+    buildCommand: npm install
+    startCommand: npm start
+    healthCheckPath: /api/health
+    envVars:
+      - key: NODE_ENV
+        value: production
+      - key: MONGO_URI
+        sync: false          # Atlas connection string — yaratishda kiritiladi
+      - key: JWT_SECRET
+        generateValue: true  # Render avtomatik kuchli random secret generatsiya qiladi
+      - key: BOT_USERNAME
+        value: finance_save_bot
+      - key: BOT_TOKEN
+        sync: false          # push-notification uchun — bot bilan bir xil token
+
+  # 2) Bot — Telegraf (long polling + health-check HTTP server)
+  - type: web
+    name: financesave-bot
+    runtime: node
+    rootDir: bot
+    plan: free
+    region: oregon
+    branch: main
+    buildCommand: npm install
+    startCommand: npm start
+    envVars:
+      - key: BOT_TOKEN
+        sync: false          # @finance_save_bot tokeni
+      # DIQQAT: agar Render backend'ga boshqa URL bersa (masalan financesave-backend-abcd),
+      # shu qiymatni yangi URL + /api ga o'zgartiring (Dashboard → bot service → Environment)
+      - key: BACKEND_URL
+        value: https://financesave-backend.onrender.com/api
