@@ -96,43 +96,37 @@ bot.start(async (ctx) => {
   const telegramUsername = ctx.from.username || ctx.from.first_name || "";
   const firstName = ctx.from.first_name || "do'st";
 
+  // Web App tugmasi — salomlashuv xabarining ostida chiqadi.
+  const webAppKb = Markup.inlineKeyboard([
+    [Markup.button.webApp("🚀 Web App'ni ochish", WEB_APP_URL)],
+  ]);
+
   if (code) {
     try {
       const res = await api.linkTelegram({ code, chatId, telegramUsername });
       const name = res.data?.name || firstName;
-      await ctx.reply(
-        `Salom, ${name}!\n\n✅ Hisobingiz muvaffaqiyatli ulandi!`,
-        Object.assign({}, mainMenu, {
-          reply_markup: Object.assign({}, mainMenu.reply_markup, {
-            inline_keyboard: [[Markup.button.webApp("🚀 Mini Appni ochish", WEB_APP_URL)]],
-          }),
-        })
-      );
+      await ctx.reply(`Salom, ${name}!\n\n✅ Hisobingiz muvaffaqiyatli ulandi!`, webAppKb);
     } catch (err) {
       await handleApiError(ctx, err);
+      return;
     }
-    return;
+  } else {
+    let extraNote = "";
+    try {
+      await api.getMe(chatId);
+    } catch (err) {
+      const status = err.response?.status;
+      if (status === 401 || status === 404) {
+        extraNote =
+          '🔗 Hisobingizni ulash uchun Web ilovada "Telegramni ulash" tugmasini bosib, olingan kodni yuboring:\n/start <kod>';
+      }
+    }
+    await ctx.reply(welcomeText(firstName, extraNote), webAppKb);
   }
 
-  let extraNote = "";
-  try {
-    await api.getMe(chatId);
-  } catch (err) {
-    const status = err.response?.status;
-    if (status === 401 || status === 404) {
-      extraNote =
-        '🔗 Hisobingizni ulash uchun Web ilovada "Telegramni ulash" tugmasini bosib, olingan kodni yuboring:\n/start <kod>';
-    }
-  }
-
-  await ctx.reply(
-    welcomeText(firstName, extraNote),
-    Object.assign({}, mainMenu, {
-      reply_markup: Object.assign({}, mainMenu.reply_markup, {
-        inline_keyboard: [[Markup.button.webApp("🚀 Mini Appni ochish", WEB_APP_URL)]],
-      }),
-    })
-  );
+  // Asosiy menyu klaviaturasi alohida xabar sifatida (Telegram bitta xabarda ikkala turdagi
+  // tugmani qo'llab-quvvatlamaydi).
+  await ctx.reply("👇 Asosiy menyu:", mainMenu);
 });
 
 // --- 💰 Balans ---
