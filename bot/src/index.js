@@ -7,6 +7,7 @@ const { Telegraf, Markup } = require("telegraf");
 const api = require("./api");
 
 const BOT_TOKEN = process.env.BOT_TOKEN;
+const WEB_APP_URL = process.env.WEB_APP_URL || "https://financesave-web.vercel.app";
 
 if (!BOT_TOKEN) {
   console.error("❌ BOT_TOKEN topilmadi. .env faylida BOT_TOKEN ni sozlang.");
@@ -38,12 +39,13 @@ const BTN_BUDGET = "📊 Byudjet";
 const BTN_SAVINGS = "🎯 Jamg'armalar";
 const BTN_DEBTS = "💳 Qarzlar";
 const BTN_AI = "🤖 AI Maslahatchi";
+const BTN_WEB_APP = "🌐 Web ilova";
 
 const mainMenu = Markup.keyboard([
   [BTN_BALANCE, BTN_BUDGET],
   [BTN_SAVINGS, BTN_DEBTS],
   [BTN_ADD_EXPENSE, BTN_ADD_INCOME],
-  [BTN_AI],
+  [BTN_AI, Markup.button.webApp(BTN_WEB_APP, WEB_APP_URL)],
 ]).resize();
 
 // --- Yordamchi funksiyalar ---
@@ -96,7 +98,10 @@ bot.start(async (ctx) => {
     const status = err.response?.status;
     if (status === 401 || status === 404) {
       await ctx.reply(
-        "👋 Xush kelibsiz!\n\nWeb ilovada \"Telegramni ulash\" tugmasini bosib, kodni shu yerga yuboring:\n/start <kod>"
+        "👋 Xush kelibsiz!\n\nWeb ilovada \"Telegramni ulash\" tugmasini bosib, kodni shu yerga yuboring:\n/start <kod>",
+        Markup.inlineKeyboard([
+          [Markup.button.webApp("🚀 Web ilovani ochish", WEB_APP_URL)],
+        ])
       );
     } else {
       await handleApiError(ctx, err);
@@ -250,6 +255,14 @@ bot.on("text", async (ctx) => {
 // --- Ishga tushirish ---
 
 bot.launch();
+
+// Telegram chap pastki (☰) menyu tugmasini Mini App'ga bog'lash —
+// botni ochgan har foydalanuvchi bitta bosishda web ilovani ko'radi.
+bot.telegram
+  .setChatMenuButton({ menu_button: { type: "web_app", text: "🌐 Web ilova", web_app: { url: WEB_APP_URL } } })
+  .then(() => console.log(`🌐 Mini App menyu tugmasi o'rnatildi: ${WEB_APP_URL}`))
+  .catch((e) => console.error("Mini App menyu tugmasini o'rnatishda xatolik:", e.message));
+
 console.log("🤖 Finance AI bot ishga tushdi...");
 
 process.once("SIGINT", () => bot.stop("SIGINT"));
