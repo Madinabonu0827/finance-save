@@ -14,6 +14,6 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: Ping backend
-        run: curl -sf --max-time 20 https://financeai-backend-2npf.onrender.com/api/health || true
+        run: curl -sf --max-time 20 https://finance-save.onrender.com/api/health || true
       - name: Ping bot
-        run: curl -sf --max-time 20 https://financeai-bot.onrender.com/ || true
+        run: curl -sf --max-time 20 https://finance-save-1.onrender.com/ || true
