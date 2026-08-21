@@ -123,10 +123,6 @@ bot.start(async (ctx) => {
     }
     await ctx.reply(welcomeText(firstName, extraNote), webAppKb);
   }
-
-  // Asosiy menyu klaviaturasi alohida xabar sifatida (Telegram bitta xabarda ikkala turdagi
-  // tugmani qo'llab-quvvatlamaydi).
-  await ctx.reply("👇 Asosiy menyu:", mainMenu);
 });
 
 // --- 💰 Balans ---
